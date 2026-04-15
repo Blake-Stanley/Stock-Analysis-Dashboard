@@ -42,15 +42,23 @@ Stock-Analysis-Dashboard/
 ├── todo.md
 ├── requirements.txt
 ├── .gitignore                  # data/* excluded (files too large for git)
+├── pechersky_setup_todo.txt    # Will's environment setup instructions
 ├── Background/
 │   ├── pitch_deck.pdf
 │   └── pitch_instructor_feedback.txt
 ├── data/                       # pre-computed, gitignored
-│   ├── compustat_with_permno.parquet
-│   ├── crsp_m.dta
-│   └── ff5_plus_mom.dta
-├── signals/                    # Blake — quant signal calculators
-│   └── __init__.py
+│   ├── compustat_with_permno.parquet   # Compustat fundamentals + PERMNO joined
+│   ├── crsp_m.dta                      # CRSP monthly returns/price/shares
+│   ├── ff5_plus_mom.dta                # Fama-French 5 factors + momentum
+│   └── quant_metrics.parquet           # MASTER OUTPUT — 33,675 rows, 49 cols
+├── signals/                    # Blake — quant signal calculators (complete)
+│   ├── __init__.py
+│   ├── fscore.py
+│   ├── gross_profitability.py
+│   ├── accruals.py
+│   ├── valuation.py
+│   ├── momentum.py
+│   └── composite.py            # joins all signals + exports quant_metrics.parquet
 ├── sentiment/                  # Will — EDGAR transcript fetching + scoring
 │   └── __init__.py
 ├── ai/                         # Will — Claude API synthesis layer
@@ -63,24 +71,36 @@ Stock-Analysis-Dashboard/
 
 ## Current State — April 15, 2026
 
-**Phase 0 complete. Project structure scaffolded. Data loaded.**
+**Phase 1 complete. All quant signals built and exported.**
 
-### What exists
-- `Background/pitch_deck.pdf` — original project pitch
-- `Background/pitch_instructor_feedback.txt` — instructor feedback (score 4.5/5)
-- `todo.md` — full ordered task list across 6 phases
-- `requirements.txt` — pinned dependencies
-- `data/compustat_with_permno.parquet` — Compustat fundamentals with PERMNO
-- `data/crsp_m.dta` — CRSP monthly returns/price/shares
-- `data/ff5_plus_mom.dta` — Fama-French 5 factors + momentum
-- `signals/`, `sentiment/`, `ai/`, `dashboard/` — scaffolded, empty
+### What exists and works
+- All 5 quant signal calculators in `signals/` — fully tested
+- `signals/composite.py` — joins all signals, computes composite, exports master parquet
+- `data/quant_metrics.parquet` — 33,675 rows, 49 columns; ready for dashboard consumption
+- `.venv/` — virtual environment with all dependencies installed
+- `pechersky_setup_todo.txt` — Will's setup guide (venv, data files, API key)
+
+### quant_metrics.parquet contents (key columns for dashboard)
+| Signal | Key columns | Note |
+|--------|-------------|------|
+| F-Score | `fscore` (0–9), `F1`–`F9`, `fscore_pct`, + 6 ratios | 30k tickers |
+| Gross Profitability | `gp_ratio`, `gp_pct_universe`, `gp_pct_sector` | 27k tickers |
+| Accruals / Earnings Quality | `accruals_ratio`, `accruals_quality_pct`, `high_accruals` | 28k tickers |
+| Valuation | `ev_ebitda`, `pe_ratio`, `ev_ebitda_pct`, `value_pct` | 15k tickers (mkvaltq limited) |
+| Momentum | `mom_12_1`, `ret_1m`, `reversal_flag`, `mom_pct` | 24k tickers |
+| **Composite** | `composite_score` (0–100), `composite_pct`, `signals_used` | 23k tickers (3+ signals) |
+
+### How Will loads data for a ticker
+```python
+import pandas as pd
+df = pd.read_parquet("data/quant_metrics.parquet", engine="fastparquet")
+row = df[df["tic"] == "AAPL"].iloc[0]
+```
 
 ### What's not started
-- Signal calculators (F-Score, gross profitability, accruals, momentum, valuation)
-- Percentile ranking engine + composite score
-- EDGAR transcript fetcher + sentiment scoring
-- Claude API synthesis
-- Streamlit dashboard
+- EDGAR transcript fetcher + sentiment scoring (Phase 2 — Will)
+- Claude API synthesis (Phase 3 — Will)
+- Streamlit dashboard (Phase 4 — Will)
 
 ---
 

@@ -1,6 +1,7 @@
 # Core data
 pandas>=2.0
-pyarrow>=14.0        # parquet I/O
+pyarrow>=14.0        # parquet I/O (schema inspection)
+fastparquet>=2024.2  # parquet read engine (handles this file's encoding)
 pyreadstat>=1.2      # .dta (Stata) file reading
 scipy>=1.11          # percentile ranking
 

@@ -1,8 +1,10 @@
 # some claude settings for local computer
 .claude/settings.local.json
 
-# data files are too big
-data/*
+# these data files are too big
+data/compustat_with_permno.parquet
+data/crsp_m.dta
+data/ff5_plus_mom.dta
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
