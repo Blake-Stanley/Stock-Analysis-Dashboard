@@ -11,6 +11,8 @@ Update this file at the end of every working session or whenever a meaningful mi
 
 **Whenever a task in `todo.md` is completed, immediately mark it `[x]` and append the completion date.**
 
+**Whenever something significant changes in the project (phase completed, new module built, key decision made, new data file added), update `README.md` to reflect the current state — especially the Status table and Project Structure.**
+
 ---
 
 ## Project Overview
