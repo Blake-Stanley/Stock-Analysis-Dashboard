@@ -1,0 +1,40 @@
+Here are the MCP servers worth adding for this project:
+
+  ---
+  Recommended MCP Servers
+
+  1. Fetcher — web scraping (most useful for you)
+
+  Headless browser that extracts readable content from JS-heavy pages. You'll need this for Motley Fool /    
+  Seeking Alpha transcript fallback.
+
+  claude mcp add --transport stdio fetcher -- cmd /c npx -y @jae-jae/fetcher-mcp
+
+  2. Fetch — direct HTTP requests
+
+  Lightweight tool for hitting REST APIs — great for the SEC EDGAR API directly.
+
+  claude mcp add --transport stdio fetch -- cmd /c npx -y @modelcontextprotocol/server-fetch
+
+  3. Brave Search — web search (optional, requires free API key)
+
+  Useful for finding financial news or documentation while building. Get a free key at brave.com/search/api, 
+  then:
+
+  claude mcp add --transport http brave-search --env BRAVE_SEARCH_API_KEY=YOUR_KEY
+  https://api.bravesearch.com/mcp
+
+  ---
+  How to verify they're connected
+
+  After adding, type /mcp inside this Claude Code session to see the status of all connected servers.        
+
+  Manage them later
+
+  claude mcp list           # see all configured servers
+  claude mcp remove fetcher # remove one
+
+  ---
+  Bottom line for your project: fetcher is the most valuable one — you'll want it the moment you start trying
+   to pull earnings call transcripts from Motley Fool or Seeking Alpha. fetch is a quick add that costs      
+  nothing. Brave Search is nice-to-have but not critical.

@@ -1,0 +1,7 @@
+Run these two commmands in your terminal to make claude do frontend design better:
+
+claude plugin marketplace add https://github.com/anthropics/claude-code
+claude plugin install frontend-design  
+
+you should probably also download vs code and use claude in the integrated terminal and use the git source control sidebar for syncing with github
+
