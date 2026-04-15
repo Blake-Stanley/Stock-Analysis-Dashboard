@@ -5,3 +5,8 @@ claude plugin install frontend-design
 
 you should probably also download vs code and use claude in the integrated terminal and use the git source control sidebar for syncing with github
 
+you also need to paste in these three files from our backtest homework into the data folder.
+it's too big to share over github so these files need to be the same on our computers:
+compustat_with_permno.parquet
+crsp_m.dta
+ff5_plus_mom.dta

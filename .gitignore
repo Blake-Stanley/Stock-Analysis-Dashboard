@@ -1,6 +1,9 @@
 # some claude settings for local computer
 .claude/settings.local.json
 
+# data files are too big
+data/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

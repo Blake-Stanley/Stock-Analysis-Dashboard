@@ -28,9 +28,9 @@ Update this file at the end of every working session or whenever a meaningful mi
 
 ## Key Decisions Made
 
-- **Data approach:** Pre-computed / cached. Pull Compustat + CRSP for a fixed universe (S&P 500 or Russell 1000) and store as parquet. The dashboard reads from cache — no live WRDS queries at runtime. This sidesteps Compustat's 2FA/lag issues flagged by the instructor.
-- **Composite score:** Equal-weighted average percentile rank across all quant signals (to be documented in code).
-- **Transcript source:** Try SEC EDGAR 8-K parsing first; fall back to Motley Fool or Seeking Alpha if transcripts are not clean.
+- **Data approach:** Pre-computed / cached. Blake pulls and loads the data files manually; dashboard reads from parquet at runtime — no live WRDS queries. Data is intentionally stale; limitation is acknowledged in the writeup.
+- **Composite score:** Equal-weighted average of per-signal percentile ranks → one composite score (0–100). Dashboard also shows each individual factor's percentile rank so viewers can see the contribution breakdown. Weighting rationale documented in code docstring.
+- **Transcript source:** SEC EDGAR 8-K parsing only. No fallback scraper. Tickers without a clean EDGAR transcript surface "not available" gracefully in the dashboard.
 
 ---
 
@@ -40,31 +40,46 @@ Update this file at the end of every working session or whenever a meaningful mi
 Stock-Analysis-Dashboard/
 ├── CLAUDE.md
 ├── todo.md
+├── requirements.txt
+├── .gitignore                  # data/* excluded (files too large for git)
 ├── Background/
 │   ├── pitch_deck.pdf
 │   └── pitch_instructor_feedback.txt
+├── data/                       # pre-computed, gitignored
+│   ├── compustat_with_permno.parquet
+│   ├── crsp_m.dta
+│   └── ff5_plus_mom.dta
+├── signals/                    # Blake — quant signal calculators
+│   └── __init__.py
+├── sentiment/                  # Will — EDGAR transcript fetching + scoring
+│   └── __init__.py
+├── ai/                         # Will — Claude API synthesis layer
+│   └── __init__.py
+└── dashboard/                  # Will — Streamlit app
+    └── __init__.py
 ```
-
-*(Update this tree as files are added.)*
 
 ---
 
 ## Current State — April 15, 2026
 
-**Nothing has been implemented yet.** The repo contains only background materials (pitch deck, instructor feedback) and planning documents (todo.md, CLAUDE.md).
+**Phase 0 complete. Project structure scaffolded. Data loaded.**
 
 ### What exists
-- `Background/pitch_deck.pdf` — original project pitch (dashboard modules, execution plan, division of labor)
-- `Background/pitch_instructor_feedback.txt` — instructor feedback (score 4.5/5); key flags: Compustat 2FA, EDGAR transcript quality, composite score methodology, signal rationale
+- `Background/pitch_deck.pdf` — original project pitch
+- `Background/pitch_instructor_feedback.txt` — instructor feedback (score 4.5/5)
 - `todo.md` — full ordered task list across 6 phases
+- `requirements.txt` — pinned dependencies
+- `data/compustat_with_permno.parquet` — Compustat fundamentals with PERMNO
+- `data/crsp_m.dta` — CRSP monthly returns/price/shares
+- `data/ff5_plus_mom.dta` — Fama-French 5 factors + momentum
+- `signals/`, `sentiment/`, `ai/`, `dashboard/` — scaffolded, empty
 
 ### What's not started
-- Data pipeline (WRDS / Compustat / CRSP pull)
-- Any signal calculators (F-Score, gross profitability, accruals, momentum, valuation)
-- Percentile ranking engine
-- Composite score
-- Transcript fetching and sentiment scoring
-- Claude API integration
+- Signal calculators (F-Score, gross profitability, accruals, momentum, valuation)
+- Percentile ranking engine + composite score
+- EDGAR transcript fetcher + sentiment scoring
+- Claude API synthesis
 - Streamlit dashboard
 
 ---
@@ -85,6 +100,6 @@ Stock-Analysis-Dashboard/
 ## Instructor Feedback to Address
 
 - [ ] Define and document signal selection rationale (why these 5 signals)
-- [ ] Define composite score formula explicitly (not just "we average them")
-- [ ] Confirm EDGAR transcript parsing works; document fallback source if not
-- [ ] Acknowledge stale-data limitation in the writeup
+- [x] Define composite score formula explicitly — equal-weighted average percentile rank; individual factor ranks also displayed ✅ April 15, 2026
+- [ ] Confirm EDGAR transcript parsing works; if a ticker has no EDGAR transcript, dashboard shows "not available" (no fallback scraper)
+- [x] Acknowledge stale-data limitation in the writeup — pre-computed cache approach confirmed; stale-data note will be in writeup ✅ April 15, 2026

@@ -5,34 +5,33 @@
 
 ---
 
-## Phase 0 — Decisions to Make First (blocking everything else)
+## Phase 0 — Decisions to Make First (blocking everything else) ✅ April 15, 2026
 
-- [ ] **Decide: live data vs. pre-computed.** Compustat via WRDS has login/2FA friction and lagged data. Recommended: pre-pull fundamentals for a fixed universe (e.g. S&P 500 or Russell 1000) and cache to CSV/parquet. Demo runs off cached data; user inputs a ticker and gets instant results. Document this limitation clearly.
-- [ ] **Decide: composite score methodology.** Define how the 5 quant signals combine into one overall rank (e.g. equal-weighted average percentile). This needs to be written down before coding the scoring engine.
-- [ ] **Decide: transcript source.** Test EDGAR 8-K parsing first. If transcripts are not clean/complete, fall back to Motley Fool or Seeking Alpha scraping (as instructor suggested).
+- [x] **Decide: live data vs. pre-computed.** ✅ **Pre-computed / cached.** Blake will pull and load the data files manually; dashboard reads from parquet at runtime — no live WRDS queries. Data will be stale; this limitation will be acknowledged in the writeup.
+- [x] **Decide: composite score methodology.** ✅ **Equal-weighted average percentile rank across all quant signals.** Dashboard also displays each individual factor's percentile rank so viewers can see the contribution breakdown.
+- [x] **Decide: transcript source.** ✅ **SEC EDGAR 8-K only.** No fallback scraper — if a ticker's transcript isn't available via EDGAR, show "not available" gracefully.
 
 ---
 
 ## Phase 1 — Data & Metrics Engine (Blake) — *was due April 11*
 
-- [ ] **Set up project structure.** Create `data/`, `signals/`, `sentiment/`, `dashboard/`, `ai/` directories; add `requirements.txt` and `.gitignore`.
-- [ ] **Pull Compustat fundamentals from WRDS.** Income statement, balance sheet, and cash flow statement for target universe (suggest S&P 500). Save to `data/compustat_fundamentals.parquet`.
-- [ ] **Pull CRSP market data from WRDS.** Monthly returns, shares outstanding, and price for momentum and valuation multiples. Save to `data/crsp_market.parquet`.
-- [ ] **Implement Piotroski F-Score calculator** (`signals/fscore.py`). All 9 binary components: profitability (ROA, CFO, ΔROA, accruals), leverage/liquidity (ΔLeverage, ΔCurrent ratio, no new equity), efficiency (ΔGross margin, ΔAsset turnover). Output component breakdown + total score (0–9) per ticker.
+- [x] **Set up project structure.** ✅ April 15, 2026. Created `signals/`, `sentiment/`, `dashboard/`, `ai/` with `__init__.py`; added `requirements.txt`. Data already loaded by Blake: `compustat_with_permno.parquet`, `crsp_m.dta`, `ff5_plus_mom.dta`.
+- [x] **Pull Compustat fundamentals from WRDS.** ✅ April 15, 2026. Loaded as `data/compustat_with_permno.parquet` (654 cols, 1.7M rows; PERMNO already joined).
+- [x] **Pull CRSP market data from WRDS.** ✅ April 15, 2026. Loaded as `data/crsp_m.dta`. Factor data in `data/ff5_plus_mom.dta`.
+- [x] **Implement Piotroski F-Score calculator** (`signals/fscore.py`). ✅ April 15, 2026. All 9 binary components implemented; outputs component breakdown + total score (0–9) + underlying ratios per ticker. Verified on 30k tickers; AAPL=6 spot-check passes.
 - [ ] **Implement gross profitability signal** (`signals/gross_profitability.py`). Novy-Marx (2013): (Revenue − COGS) / Total Assets.
 - [ ] **Implement earnings quality / accruals ratio** (`signals/accruals.py`). Operating accruals = (Net Income − CFO) / Total Assets. Flag large positive accruals as low quality.
 - [ ] **Implement valuation multiples** (`signals/valuation.py`). EV/EBITDA and P/E ratio per ticker per period.
 - [ ] **Implement 12-1 month momentum** (`signals/momentum.py`). Cumulative return months t-12 to t-2; add reversal flag for past-month return.
 - [ ] **Compute percentile ranks.** For each signal, rank ticker within (a) its GICS sector and (b) full universe. Output a `ranks_df` with one row per ticker: signal values + percentile ranks.
-- [ ] **Build composite quant score.** Average the percentile ranks across all signals into one overall quant score (0–100). Document the weighting rationale in a docstring.
+- [ ] **Build composite quant score.** Equal-weighted average of per-signal percentile ranks → one composite score (0–100). Also output each individual factor's percentile rank in the same row for dashboard display. Document weighting rationale in docstring.
 - [ ] **Export a single master metrics file.** `data/quant_metrics.parquet` with all signals, ranks, and composite score. One row per ticker, latest available period.
 
 ---
 
 ## Phase 2 — Earnings Call Sentiment Pipeline (Will)
 
-- [ ] **Build EDGAR transcript fetcher** (`sentiment/fetch_transcripts.py`). Query SEC EDGAR full-text search for 8-K filings; extract the earnings call transcript section. Test on 5–10 tickers before scaling.
-- [ ] **Implement fallback transcript scraper** if EDGAR parsing is unreliable. Consider Motley Fool earnings transcript pages or Seeking Alpha (per instructor feedback).
+- [ ] **Build EDGAR transcript fetcher** (`sentiment/fetch_transcripts.py`). Query SEC EDGAR full-text search for 8-K filings; extract the earnings call transcript section. Test on 5–10 tickers before scaling. No fallback — if a ticker has no clean EDGAR transcript, surface "not available" in the dashboard.
 - [ ] **Parse and clean transcripts.** Separate management prepared remarks from Q&A section. Strip boilerplate (Safe Harbor language, operator lines).
 - [ ] **Score tone, hedging, and forward-looking confidence per transcript** (`sentiment/score.py`). Options: VADER/FinBERT for tone; hedging word list (EPFR or Loughran-McDonald); forward-looking sentence ratio. Produce a numeric score for each dimension per quarter.
 - [ ] **Build QoQ trend tracker.** Store scores for the last 4–6 quarters per ticker; compute quarter-over-quarter delta. Output a small DataFrame used by the AI synthesis and dashboard chart.

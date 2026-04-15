@@ -1,0 +1,15 @@
+# Core data
+pandas>=2.0
+pyarrow>=14.0        # parquet I/O
+pyreadstat>=1.2      # .dta (Stata) file reading
+scipy>=1.11          # percentile ranking
+
+# Dashboard
+streamlit>=1.35
+plotly>=5.20
+
+# AI / Claude API
+anthropic>=0.28
+
+# EDGAR transcript fetching
+requests>=2.31
