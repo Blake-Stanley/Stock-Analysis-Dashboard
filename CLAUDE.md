@@ -9,6 +9,8 @@ Update this file at the end of every working session or whenever a meaningful mi
 - Note any blockers, open questions, or deviations from the original plan
 - If the file grows stale, regenerate it from the current repo state
 
+**Whenever a task in `todo.md` is completed, immediately mark it `[x]` and append the completion date.**
+
 ---
 
 ## Project Overview

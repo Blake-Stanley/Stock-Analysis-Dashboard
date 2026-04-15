@@ -50,11 +50,11 @@
 
 ## Phase 4 — Streamlit Dashboard (Both)
 
-- [ ] **Scaffold the Streamlit app** (`dashboard/app.py`). Single-page layout with sidebar ticker input and run button.
-- [ ] **Module 1 — Piotroski F-Score panel.** Gauge or bar showing total score (0–9) + table of all 9 component pass/fail.
-- [ ] **Module 2 — Gross Profitability panel.** Current value + percentile rank vs. sector (bar or gauge).
-- [ ] **Module 3 — Earnings Quality panel.** Accruals ratio + cash flow vs. net income comparison chart.
-- [ ] **Module 4 — Valuation & Momentum panel.** EV/EBITDA, P/E, 12-1M momentum, reversal flag.
+- [x] **Scaffold the Streamlit app** (`dashboard/app.py`). Single-page layout with sidebar ticker input and run button. ✅ April 15, 2026
+- [x] **Module 1 — Piotroski F-Score panel.** Gauge or bar showing total score (0–9) + table of all 9 component pass/fail. ✅ April 15, 2026
+- [x] **Module 2 — Gross Profitability panel.** Current value + percentile rank vs. sector (bar or gauge). ✅ April 15, 2026
+- [x] **Module 3 — Earnings Quality panel.** Accruals ratio + cash flow vs. net income comparison chart. ✅ April 15, 2026
+- [x] **Module 4 — Valuation & Momentum panel.** EV/EBITDA, P/E, 12-1M momentum, reversal flag. ✅ April 15, 2026
 - [ ] **Module 5 — Sentiment & Textual Analysis panel.** QoQ trend line chart (tone, hedging, confidence over last 4–6 quarters).
 - [ ] **Module 6 — AI Synthesis panel.** Display bull case, bear case, key risks, and divergence flag from Claude output. Show a spinner while the API call is in flight.
 - [ ] **Wire up all modules end-to-end.** Ticker input → load from parquet → compute/fetch → display all 6 panels.
