@@ -1,0 +1,20 @@
+**Project Pitch Feedback — Group 9: AI-Powered Equity Research Agent**
+
+**Score: 4.5/5**
+
+**Usefulness**: Great. I like synthesizing text + quant data.
+
+**Novelty**: Good. The individual components (F-Score, accruals, earnings call sentiment) are all well-known, but the integrated dashboard combining quant ranks with QoQ sentiment trends and AI reconciliation is cool. So is building both bear and bull cases.
+
+**Feasibility**: Difficult but possible for group of two. Collecting quant data and earnings call transcripts requires data pipeline, especially for QoQ trends. Will take some work to get the visual output working.
+
+**Execution plan**: You need to decide whether you want a live data dashboard that retrieves info in real-time for a user-prompted ticker. If so, Compustat is the wrong data source (lagged data, requires 2fa every time to pull data). An alternative would be to just live with demo-ing the tool with pre-computed metrics on stale data.
+
+**Presentation polish**: Slides are clean and well-designed visually, but slide 1 is text-dense.
+
+**Suggestions/Questions:**
+
+- Earnings call transcripts: confirm your EDGAR parsing approach — 8-K filings don't always contain full transcripts in a clean format. Consider Motley Fool or Seeking Alpha as a fallback.
+- Signal selection rationale: the pitch lists F-Score, gross profitability, accruals, valuation, and momentum without explaining how they were chosen or how they combine into a composite score.
+- Computing percentile ranks within sector & universe requires having the full universe & sector-level numbers pre-computed (or at least available in a database accessible at run-time). Compustat makes this easier but means that you'll be delivering stale #s. Fine for a project like this but something you need to decide on early.
+- How are you combining the quant signals into one overall quant signal? Avg percentile?
