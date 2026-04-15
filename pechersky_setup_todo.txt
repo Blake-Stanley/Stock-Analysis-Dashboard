@@ -1,12 +1,31 @@
-Run these two commmands in your terminal to make claude do frontend design better:
+WILL'S SETUP GUIDE
+==================
+---
 
-claude plugin marketplace add https://github.com/anthropics/claude-code
-claude plugin install frontend-design  
+STEP 1 — Make sure you have Python 3.11+
+  python --version
+  If not, download from https://www.python.org/downloads/
 
-you should probably also download vs code and use claude in the integrated terminal and use the git source control sidebar for syncing with github
+STEP 2 — Clone / pull the repo
+  Make sure you have the latest from GitHub before starting.
+  VS Code tip: use the Source Control sidebar (Ctrl+Shift+G) to pull.
 
-you also need to paste in these three files from our backtest homework into the data folder.
-it's too big to share over github so these files need to be the same on our computers:
-compustat_with_permno.parquet
-crsp_m.dta
-ff5_plus_mom.dta
+STEP 3 — Create the virtual environment (one time only)
+  Open a terminal in the project root (Stock-Analysis-Dashboard/) and run:
+    python -m venv .venv
+
+Step 4 - download vs code and use claude in integrated terminal and use the git source control sidebar for github
+
+STEP 5 — Install dependencies
+  pip install -r requirements.txt
+
+STEP 6 — Paste the Data files from our backtest homework
+  The data/ folder is gitignored (files are too large for GitHub).
+  Paste these data files from our backtest homework into data/:
+    data/compustat_with_permno.parquet
+    data/crsp_m.dta
+    data/ff5_plus_mom.dta
+
+
+
+
