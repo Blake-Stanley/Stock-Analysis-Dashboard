@@ -12,6 +12,7 @@ plotly>=5.20
 # AI / Claude API
 anthropic>=0.28
 
-# EDGAR transcript fetching
+# EDGAR transcript fetching + sentiment scoring
 requests>=2.31
 beautifulsoup4>=4.12
+vaderSentiment>=3.3.2

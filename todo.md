@@ -32,10 +32,10 @@
 ## Phase 2 — Earnings Call Sentiment Pipeline (Will)
 
 - [x] **Build EDGAR transcript fetcher** (`sentiment/fetch_transcripts.py`). ✅ April 16, 2026. Resolves ticker→CIK via EDGAR company_tickers.json, walks 8-K filings, picks transcript exhibit (priority: filename contains "transcript" > ex99.x > primary doc), extracts call section, strips Safe Harbor boilerplate. Returns [] if no usable transcript found. Smoke-test: `python -m sentiment.fetch_transcripts AAPL MSFT NVDA`.
-- [ ] **Parse and clean transcripts.** Separate management prepared remarks from Q&A section. Strip boilerplate (Safe Harbor language, operator lines).
-- [ ] **Score tone, hedging, and forward-looking confidence per transcript** (`sentiment/score.py`). Options: VADER/FinBERT for tone; hedging word list (EPFR or Loughran-McDonald); forward-looking sentence ratio. Produce a numeric score for each dimension per quarter.
-- [ ] **Build QoQ trend tracker.** Store scores for the last 4–6 quarters per ticker; compute quarter-over-quarter delta. Output a small DataFrame used by the AI synthesis and dashboard chart.
-- [ ] **Export sentiment results.** `data/sentiment_scores.parquet` with ticker, quarter, tone score, hedging score, confidence score, and QoQ deltas.
+- [x] **Parse and clean transcripts.** ✅ April 16, 2026. `sentiment/parse_transcripts.py` — splits prepared remarks vs Q&A, parses into speaker turns, classifies each turn as executive/analyst/operator, strips operator logistics lines. Returns ParsedTranscript with management_text and analyst_text ready for scoring.
+- [x] **Score tone, hedging, and forward-looking confidence per transcript** (`sentiment/score.py`). ✅ April 16, 2026. VADER compound for tone [-1,1]; Loughran-McDonald uncertainty word list for hedging [0,1]; forward-looking sentence ratio penalised by hedging for confidence [0,1]. `score_transcript(parsed)` → TranscriptScores; `score_transcript_list(transcripts)` → DataFrame.
+- [x] **Build QoQ trend tracker.** ✅ April 16, 2026. `sentiment/trend.py` — `compute_qoq()` adds tone_qoq/hedging_qoq/confidence_qoq deltas + trend labels (improving/declining/stable) per ticker. `build_ticker_sentiment(ticker)` runs the full pipeline for one ticker.
+- [x] **Export sentiment results.** ✅ April 16, 2026. `export_sentiment_scores(tickers, path)` batch-processes tickers and writes `data/sentiment_scores.parquet`. `load_ticker_sentiment(ticker)` is the dashboard fast path — reads cache, falls back to live fetch if missing.
 
 ---
 
