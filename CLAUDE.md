@@ -35,6 +35,7 @@ Update this file at the end of every working session or whenever a meaningful mi
 - **Data approach:** Pre-computed / cached. Blake pulls and loads the data files manually; dashboard reads from parquet at runtime — no live WRDS queries. Data is intentionally stale; limitation is acknowledged in the writeup.
 - **Composite score:** Equal-weighted average of per-signal percentile ranks → one composite score (0–100). Dashboard also shows each individual factor's percentile rank so viewers can see the contribution breakdown. Weighting rationale documented in code docstring.
 - **Transcript source:** SEC EDGAR 8-K parsing only. No fallback scraper. Tickers without a clean EDGAR transcript surface "not available" gracefully in the dashboard.
+- **Dashboard architecture:** Modular component files — `app.py` is a thin orchestrator; each panel lives in `dashboard/components/<module>.py` and exposes a single `render(row, ticker, ...)` function. New panels = new file, no touching `app.py` logic. Data loading lives in `dashboard/data_loader.py`. Full-screen detail pages live in `dashboard/pages/`.
 
 ---
 
@@ -67,15 +68,45 @@ Stock-Analysis-Dashboard/
 │   └── __init__.py
 ├── ai/                         # Will — Claude API synthesis layer
 │   └── __init__.py
-└── dashboard/                  # Will — Streamlit app
-    └── __init__.py
+└── dashboard/                  # Streamlit app — modular component architecture
+    ├── app.py                  # THIN ORCHESTRATOR — page config, sidebar, calls render()
+    ├── data_loader.py          # load_quant(), load_sentiment(), get_ticker_row()
+    ├── components/             # One file per dashboard panel
+    │   ├── __init__.py
+    │   ├── fscore.py           # Module 1 — F-Score + clickable detail dialog
+    │   ├── gross_profitability.py  # Module 2
+    │   ├── earnings_quality.py     # Module 3
+    │   ├── valuation_momentum.py   # Module 4
+    │   ├── sentiment.py        # Module 5 — Will (Phase 2)
+    │   └── ai_synthesis.py     # Module 6 — Will (Phase 3)
+    └── pages/                  # Full-screen detail pages (Streamlit multipage)
+        └── fscore_detail.py    # Full F-Score financial breakdown (/fscore_detail?ticker=X)
+```
+
+### Dashboard coding pattern
+
+**Rule: `app.py` stays thin.** It owns page config, sidebar, data loading, and the six `render()` calls. Nothing else.
+
+**Adding a new panel:** create `dashboard/components/<name>.py`, define `render(row, ticker, ...)`, add one line to `app.py`.
+
+**Adding a detail/drill-down page:** create `dashboard/pages/<name>.py`. Read `st.query_params["ticker"]` for context. Link to it with `?ticker=X` in an HTML anchor with `target="_blank"` for new-tab behavior.
+
+**Component file template:**
+```python
+# dashboard/components/my_module.py
+import pandas as pd
+import streamlit as st
+
+def render(row: pd.Series, ticker: str) -> None:
+    with st.expander("Module N — Title", expanded=True):
+        ...
 ```
 
 ---
 
-## Current State — April 15, 2026
+## Current State — April 16, 2026
 
-**Phase 1 complete. All quant signals built and exported.**
+**Phase 1 complete. Dashboard scaffold (Modules 1–4) built and working.**
 
 ### What exists and works
 - All 5 quant signal calculators in `signals/` — fully tested
@@ -83,6 +114,15 @@ Stock-Analysis-Dashboard/
 - `data/quant_metrics.parquet` — 33,675 rows, 49 columns; ready for dashboard consumption
 - `.venv/` — virtual environment with all dependencies installed
 - `pechersky_setup_todo.txt` — Will's setup guide (venv, data files, API key)
+- `dashboard/app.py` — thin orchestrator; Enter-key submit, composite summary bar, six `render()` calls
+- `dashboard/data_loader.py` — cached parquet loaders shared across app and detail pages
+- `dashboard/components/fscore.py` — Module 1 with clickable per-component detail dialogs + full-report link
+- `dashboard/components/gross_profitability.py` — Module 2
+- `dashboard/components/earnings_quality.py` — Module 3
+- `dashboard/components/valuation_momentum.py` — Module 4
+- `dashboard/components/sentiment.py` — Module 5 stub (Will fills in Phase 2)
+- `dashboard/components/ai_synthesis.py` — Module 6 stub (Will fills in Phase 3)
+- `dashboard/pages/fscore_detail.py` — full F-Score drill-down page (`/fscore_detail?ticker=X`)
 
 ### quant_metrics.parquet contents (key columns for dashboard)
 | Signal | Key columns | Note |
@@ -102,9 +142,9 @@ row = df[df["tic"] == "AAPL"].iloc[0]
 ```
 
 ### What's not started
-- EDGAR transcript fetcher + sentiment scoring (Phase 2 — Will)
-- Claude API synthesis (Phase 3 — Will)
-- Streamlit dashboard (Phase 4 — Will)
+- EDGAR transcript fetcher + sentiment scoring (Phase 2 — Will) → `sentiment/`
+- Claude API synthesis (Phase 3 — Will) → `ai/`
+- Will implements `components/sentiment.py` and `components/ai_synthesis.py`
 
 ---
 
