@@ -18,6 +18,13 @@ Run
     streamlit run dashboard/app.py
 """
 
+import sys
+from pathlib import Path
+
+# Ensure the project root is on sys.path so that sentiment/, ai/, etc. are importable
+# regardless of which directory Streamlit is launched from.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import pandas as pd
 import streamlit as st
 

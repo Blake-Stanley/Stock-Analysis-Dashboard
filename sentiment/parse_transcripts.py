@@ -62,21 +62,30 @@ class ParsedTranscript:
 # ---------------------------------------------------------------------------
 
 # Markers that signal the start of the Q&A section
+# Inline flags stripped — re.IGNORECASE | re.MULTILINE passed to compile instead
 _QA_START_PATTERNS = [
-    r"(?im)^.*\bquestion[- ]and[- ]answer\b.*session.*$",
-    r"(?im)^.*\bq\s*&\s*a\b.*session.*$",
-    r"(?im)^(?:operator|moderator)\s*[:\-]\s*.*\bquestions?\b.*",
-    r"(?i)we\s+will\s+now\s+(?:begin|open|take)\s+(?:the\s+)?(?:question|q&a|q\s+and\s+a)",
-    r"(?i)(?:open(?:ing)?|begin(?:ning)?)\s+(?:the\s+)?(?:floor|lines?)\s+(?:to|for)\s+questions?",
-    r"(?i)now\s+(?:open|begin)\s+(?:up\s+)?(?:for\s+)?(?:the\s+)?(?:question|q&a)",
+    r"^.*\bquestion[- ]and[- ]answer\b.*session.*$",
+    r"^.*\bq\s*&\s*a\b.*session.*$",
+    r"^(?:operator|moderator)\s*[:\-]\s*.*\bquestions?\b.*",
+    r"we\s+will\s+now\s+(?:begin|open|take)\s+(?:the\s+)?(?:question|q&a|q\s+and\s+a)",
+    r"(?:open(?:ing)?|begin(?:ning)?)\s+(?:the\s+)?(?:floor|lines?)\s+(?:to|for)\s+questions?",
+    r"now\s+(?:open|begin)\s+(?:up\s+)?(?:for\s+)?(?:the\s+)?(?:question|q&a)",
 ]
-_QA_START_RE = re.compile("|".join(_QA_START_PATTERNS))
+_QA_START_RE = re.compile("|".join(_QA_START_PATTERNS), re.IGNORECASE | re.MULTILINE)
 
-# Speaker header formats seen in EDGAR transcripts:
-#   "John Smith — Chief Financial Officer:"
+# Speaker header formats:
+#
+#  EDGAR (header-per-line):
+#   "John Smith — Chief Financial Officer:"   (colon at end of line)
 #   "JOHN SMITH, Goldman Sachs:"
 #   "John Smith (CFO):"
-#   "[Operator]"  or  "Operator:"
+#
+#  Motley Fool (inline):
+#   "John Smith: text continues on same line..."
+#   "Operator: [Operator Instructions] ..."
+#
+# The regex captures both by making end-of-line optional — the name+colon
+# may be followed by either end-of-line (EDGAR) or a space + body text (Fool).
 _SPEAKER_RE = re.compile(
     r"^"
     r"(?P<name>[A-Z][A-Za-z\.\-']+(?:\s+[A-Z][A-Za-z\.\-']+){0,4})"   # Name (1-5 title-cased words)
@@ -87,7 +96,7 @@ _SPEAKER_RE = re.compile(
         r"|"
         r"\s*\((?P<affil3>[^)\n]{1,60})\)"         # (Affiliation)
     r")?"
-    r"\s*:[ \t]*$",                                # ends with colon
+    r"\s*:[ \t]*(?=$|\s)",                         # colon then end-of-line OR whitespace
     re.MULTILINE,
 )
 
@@ -98,21 +107,22 @@ _BRACKET_SPEAKER_RE = re.compile(
 )
 
 # Operator logistics lines — content-free, safe to drop entirely
+# Inline flags stripped — re.IGNORECASE passed to compile instead
 _OPERATOR_NOISE_PATTERNS = [
-    r"(?i)please\s+(?:press|dial|hold|stand\s+by|remain\s+on\s+the\s+line)",
-    r"(?i)(?:your|the)\s+line\s+is\s+(?:open|muted|now\s+open)",
-    r"(?i)please\s+go\s+ahead",
-    r"(?i)one\s+moment\s+(?:please|while\s+we)",
-    r"(?i)(?:ladies\s+and\s+)?gentlemen,?\s+(?:please|thank\s+you\s+for\s+(?:your\s+)?patience)",
-    r"(?i)this\s+call\s+(?:is\s+being\s+)?recorded",
-    r"(?i)(?:press|dial)\s+(?:star|pound|\*|#)\s*(?:one|1|two|2)",
-    r"(?i)to\s+ask\s+a\s+question.*?(?:press|dial)",
-    r"(?i)our\s+next\s+(?:question|caller)\s+comes?\s+from",
-    r"(?i)the\s+next\s+question\s+(?:is\s+)?from",
-    r"(?i)we\s+have\s+no\s+further\s+questions",
-    r"(?i)(?:that\s+)?(?:concludes|ends)\s+(?:today'?s?|our|the)\s+(?:question|q&a|conference|call)",
+    r"please\s+(?:press|dial|hold|stand\s+by|remain\s+on\s+the\s+line)",
+    r"(?:your|the)\s+line\s+is\s+(?:open|muted|now\s+open)",
+    r"please\s+go\s+ahead",
+    r"one\s+moment\s+(?:please|while\s+we)",
+    r"(?:ladies\s+and\s+)?gentlemen,?\s+(?:please|thank\s+you\s+for\s+(?:your\s+)?patience)",
+    r"this\s+call\s+(?:is\s+being\s+)?recorded",
+    r"(?:press|dial)\s+(?:star|pound|\*|#)\s*(?:one|1|two|2)",
+    r"to\s+ask\s+a\s+question.*?(?:press|dial)",
+    r"our\s+next\s+(?:question|caller)\s+comes?\s+from",
+    r"the\s+next\s+question\s+(?:is\s+)?from",
+    r"we\s+have\s+no\s+further\s+questions",
+    r"(?:that\s+)?(?:concludes|ends)\s+(?:today'?s?|our|the)\s+(?:question|q&a|conference|call)",
 ]
-_OPERATOR_NOISE_RE = re.compile("|".join(_OPERATOR_NOISE_PATTERNS))
+_OPERATOR_NOISE_RE = re.compile("|".join(_OPERATOR_NOISE_PATTERNS), re.IGNORECASE)
 
 # Role classification keywords
 _EXECUTIVE_TITLES = frozenset([

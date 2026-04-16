@@ -136,10 +136,28 @@ _analyzer = SentimentIntensityAnalyzer()
 
 
 def _vader_scores(text: str) -> dict[str, float]:
-    """Run VADER on up to 50 000 chars (API is fast but extremely long text can skew)."""
+    """
+    Score text by averaging sentence-level VADER compound scores.
+
+    Running VADER on a full transcript (~9k words) causes the compound score
+    to saturate at ±1 because valence accumulates across hundreds of sentences.
+    Sentence-level averaging keeps the score in a meaningful range.
+    """
     if not text.strip():
         return {"compound": 0.0, "pos": 0.0, "neg": 0.0, "neu": 1.0}
-    return _analyzer.polarity_scores(text[:50_000])
+
+    sentences = _split_sentences(text)
+    if not sentences:
+        return {"compound": 0.0, "pos": 0.0, "neg": 0.0, "neu": 1.0}
+
+    totals = {"compound": 0.0, "pos": 0.0, "neg": 0.0, "neu": 0.0}
+    for sent in sentences:
+        s = _analyzer.polarity_scores(sent)
+        for k in totals:
+            totals[k] += s[k]
+
+    n = len(sentences)
+    return {k: round(v / n, 4) for k, v in totals.items()}
 
 
 def _tokenize_words(text: str) -> list[str]:
@@ -202,7 +220,10 @@ def score_transcript(parsed: ParsedTranscript) -> TranscriptScores:
     Compute tone, hedging, and confidence scores for a parsed transcript.
 
     Scoring is done on management_text (all executive turns from both prepared
-    remarks and Q&A).  Analyst text is not scored — it would dilute the signal.
+    remarks and Q&A).  If the parser found no speaker turns (common with
+    non-standard EDGAR transcript formats), falls back to scoring the full
+    prepared-remarks section, then the full transcript text.
+    Analyst text is never scored — it would dilute the signal.
 
     Parameters
     ----------
@@ -214,6 +235,13 @@ def score_transcript(parsed: ParsedTranscript) -> TranscriptScores:
     TranscriptScores
     """
     mgmt_text = parsed.management_text
+
+    # Fallback: speaker-turn parser found nothing (non-standard EDGAR format).
+    # Use prepared remarks (predominantly management content); if that's also
+    # empty, combine both sections so we score something meaningful.
+    if not mgmt_text.strip():
+        mgmt_text = (parsed.prepared_remarks_text.strip()
+                     or (parsed.prepared_remarks_text + "\n" + parsed.qa_text).strip())
 
     # --- Tone (VADER) ---
     vader = _vader_scores(mgmt_text)

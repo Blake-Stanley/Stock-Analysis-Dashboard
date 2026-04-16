@@ -42,7 +42,7 @@ from typing import Optional
 
 import pandas as pd
 
-from sentiment.fetch_transcripts import fetch_earnings_transcripts
+from sentiment.fetch_motley_fool import fetch_earnings_transcripts
 from sentiment.score import score_transcript_list
 
 
