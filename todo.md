@@ -59,6 +59,7 @@
 - [ ] **Module 6 — AI Synthesis panel.** Display bull case, bear case, key risks, and divergence flag from Claude output. Show a spinner while the API call is in flight.
 - [ ] **Wire up all modules end-to-end.** Ticker input → load from parquet → compute/fetch → display all 6 panels.
 - [ ] **Handle missing data gracefully.** If transcript data or a signal is unavailable for a ticker, show a clear "not available" message rather than crashing.
+- [ ] **Display how stale each data is at each module** We want the user to know how stale each signal is as they can be a varying levels of staleness.
 
 ---
 
