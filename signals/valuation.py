@@ -43,12 +43,36 @@ COLS_NEEDED = [
 
 
 def _load_latest(path: str = PARQUET_PATH) -> pd.DataFrame:
-    """Load Compustat, keep the most recent quarter per firm."""
+    """
+    Load Compustat. Balance sheet / market cap from the most recent quarter;
+    annual income statement items (oibdpy, iby) from the most recent fiscal
+    year-end row (fqtr==4) — those fields are YTD in Compustat quarterly files,
+    so only the Q4 row contains the full-year figure.
+    """
     df = pd.read_parquet(path, engine="fastparquet", columns=COLS_NEEDED)
-    df = df.dropna(subset=["mkvaltq"])
-    df = df[df["mkvaltq"] > 0]
-    df = df.sort_values("datadate").groupby("gvkey").tail(1).copy()
-    return df
+    df = df.sort_values("datadate")
+
+    # Balance sheet + market cap: most recent quarter with valid mkvaltq
+    bs = (
+        df.dropna(subset=["mkvaltq"])
+        .query("mkvaltq > 0")
+        .groupby("gvkey")
+        .tail(1)
+        [["gvkey", "tic", "conm", "datadate", "fyearq", "sich", "permno",
+          "mkvaltq", "dlttq", "dlcq", "cheq"]]
+    )
+
+    # Annual income items: most recent fiscal year-end quarter (fqtr==4)
+    ann = (
+        df[df["fqtr"] == 4]
+        .dropna(subset=["oibdpy"])
+        .groupby("gvkey")
+        .tail(1)
+        [["gvkey", "oibdpy", "iby"]]
+    )
+
+    merged = bs.merge(ann, on="gvkey", how="left")
+    return merged
 
 
 def compute_valuation(

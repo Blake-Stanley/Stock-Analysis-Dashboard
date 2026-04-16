@@ -33,6 +33,7 @@ Update this file at the end of every working session or whenever a meaningful mi
 ## Key Decisions Made
 
 - **Data approach:** Pre-computed / cached. Blake pulls and loads the data files manually; dashboard reads from parquet at runtime — no live WRDS queries. Data is intentionally stale; limitation is acknowledged in the writeup.
+- **Data vintage:** All data (Compustat + CRSP) runs through **December 31, 2024**. The dashboard presents signals as-of that date; no data exists beyond it. This is the single consistent cutoff across all signals — quant_metrics.parquet reflects this vintage. Dashboard should surface this date so viewers know the analysis is not real-time.
 - **Composite score:** Equal-weighted average of per-signal percentile ranks → one composite score (0–100). Dashboard also shows each individual factor's percentile rank so viewers can see the contribution breakdown. Weighting rationale documented in code docstring.
 - **Transcript source:** SEC EDGAR 8-K parsing only. No fallback scraper. Tickers without a clean EDGAR transcript surface "not available" gracefully in the dashboard.
 - **Dashboard architecture:** Modular component files — `app.py` is a thin orchestrator; each panel lives in `dashboard/components/<module>.py` and exposes a single `render(row, ticker, ...)` function. New panels = new file, no touching `app.py` logic. Data loading lives in `dashboard/data_loader.py`. Full-screen detail pages live in `dashboard/pages/`.
