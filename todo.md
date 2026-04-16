@@ -31,7 +31,7 @@
 
 ## Phase 2 — Earnings Call Sentiment Pipeline (Will)
 
-- [ ] **Build EDGAR transcript fetcher** (`sentiment/fetch_transcripts.py`). Query SEC EDGAR full-text search for 8-K filings; extract the earnings call transcript section. Test on 5–10 tickers before scaling. No fallback — if a ticker has no clean EDGAR transcript, surface "not available" in the dashboard.
+- [x] **Build EDGAR transcript fetcher** (`sentiment/fetch_transcripts.py`). ✅ April 16, 2026. Resolves ticker→CIK via EDGAR company_tickers.json, walks 8-K filings, picks transcript exhibit (priority: filename contains "transcript" > ex99.x > primary doc), extracts call section, strips Safe Harbor boilerplate. Returns [] if no usable transcript found. Smoke-test: `python -m sentiment.fetch_transcripts AAPL MSFT NVDA`.
 - [ ] **Parse and clean transcripts.** Separate management prepared remarks from Q&A section. Strip boilerplate (Safe Harbor language, operator lines).
 - [ ] **Score tone, hedging, and forward-looking confidence per transcript** (`sentiment/score.py`). Options: VADER/FinBERT for tone; hedging word list (EPFR or Loughran-McDonald); forward-looking sentence ratio. Produce a numeric score for each dimension per quarter.
 - [ ] **Build QoQ trend tracker.** Store scores for the last 4–6 quarters per ticker; compute quarter-over-quarter delta. Output a small DataFrame used by the AI synthesis and dashboard chart.
