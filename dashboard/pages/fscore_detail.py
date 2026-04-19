@@ -2,13 +2,22 @@
 dashboard/pages/fscore_detail.py — Full F-Score Financial Detail
 
 Opened from the main dashboard via "Open Full Report ↗" button.
-Reads ?ticker= from the URL query params.
-
 URL: /fscore_detail?ticker=AAPL
 """
 
 import pandas as pd
 import streamlit as st
+
+from dashboard.data_loader import (
+    FSCORE_HIST_CFG,
+    build_fscore_chart,
+    fmt_fscore_delta,
+    fmt_fscore_val,
+    get_fscore_yoy_pair,
+    get_ticker_row,
+    load_quant,
+    load_ticker_history,
+)
 
 st.set_page_config(
     page_title="F-Score Detail",
@@ -22,7 +31,7 @@ st.markdown(
 )
 
 # ---------------------------------------------------------------------------
-# F-Score component metadata (duplicated here so this page is self-contained)
+# Component metadata (self-contained so this page has no component dep)
 # ---------------------------------------------------------------------------
 
 FSCORE_META: dict[str, dict] = {
@@ -30,51 +39,36 @@ FSCORE_META: dict[str, dict] = {
         "label": "Positive ROA",
         "group": "Profitability",
         "description": "Return on Assets > 0. Confirms the firm generates positive accounting profits on its asset base.",
-        "formula": "Net Income ÷ Total Assets",
-        "pass_rule": "ROA > 0",
-        "metric_cols": ["roa"],
-        "metric_labels": ["ROA"],
-        "benchmark": 0.0,
+        "formula": "TTM Net Income ÷ Total Assets",
+        "pass_rule": "ROA (TTM) > 0",
     },
     "F2": {
         "label": "Positive Cash Flow from Operations",
         "group": "Profitability",
         "description": "Operating cash flow is positive — the firm generates real cash earnings, not just accounting income.",
-        "formula": "CFO ÷ Total Assets (pass if > 0)",
-        "pass_rule": "CFO / Assets > 0",
-        "metric_cols": ["cfo_assets"],
-        "metric_labels": ["CFO / Assets"],
-        "benchmark": 0.0,
+        "formula": "TTM CFO ÷ Total Assets",
+        "pass_rule": "CFO / Assets (TTM) > 0",
     },
     "F3": {
         "label": "Increasing ROA",
         "group": "Profitability",
         "description": "ROA improved year-over-year. Indicates the firm's operational profitability is on an upward trend.",
-        "formula": "ROA(t) > ROA(t−1)",
-        "pass_rule": "Current ROA > prior-year ROA",
-        "metric_cols": ["roa"],
-        "metric_labels": ["ROA (current period)"],
-        "benchmark": None,
+        "formula": "ROA(TTM, now) > ROA(TTM, 1yr ago)",
+        "pass_rule": "Current TTM ROA > prior-year TTM ROA",
     },
     "F4": {
         "label": "Accruals: Cash Earnings > Accounting Earnings",
         "group": "Profitability",
         "description": "Cash-based earnings exceed accrual-based earnings. Low accruals signal higher earnings quality and lower manipulation risk.",
-        "formula": "CFO / Assets > Net Income / Assets",
-        "pass_rule": "CFO/Assets > ROA",
-        "metric_cols": ["cfo_assets", "roa"],
-        "metric_labels": ["CFO / Assets", "ROA (NI / Assets)"],
-        "benchmark": None,
+        "formula": "TTM CFO / Assets > TTM NI / Assets",
+        "pass_rule": "CFO/Assets (TTM) > ROA (TTM)",
     },
     "F5": {
         "label": "Decreasing Leverage",
         "group": "Leverage / Liquidity",
         "description": "Long-term debt ratio fell year-over-year, reducing financial risk and improving solvency margin.",
-        "formula": "LT Debt / Assets(t) < LT Debt / Assets(t−1)",
+        "formula": "LT Debt / Assets (current) < LT Debt / Assets (prior year)",
         "pass_rule": "Leverage fell vs. prior year",
-        "metric_cols": ["leverage"],
-        "metric_labels": ["LT Debt / Assets"],
-        "benchmark": None,
     },
     "F6": {
         "label": "Increasing Current Ratio",
@@ -82,62 +76,34 @@ FSCORE_META: dict[str, dict] = {
         "description": "Short-term liquidity improved year-over-year. The firm has a stronger ability to cover near-term obligations.",
         "formula": "Current Assets / Current Liabilities",
         "pass_rule": "Current ratio rose vs. prior year",
-        "metric_cols": ["current_ratio"],
-        "metric_labels": ["Current Ratio"],
-        "benchmark": 1.0,
     },
     "F7": {
         "label": "No New Equity Issued",
         "group": "Leverage / Liquidity",
         "description": "Shares outstanding did not increase. Avoids EPS dilution that would harm existing shareholders.",
-        "formula": "Shares(t) ≤ Shares(t−1)",
+        "formula": "Shares Outstanding (current) ≤ Shares Outstanding (prior year)",
         "pass_rule": "Share count did not rise",
-        "metric_cols": [],
-        "metric_labels": [],
-        "benchmark": None,
     },
     "F8": {
         "label": "Improving Gross Margin",
         "group": "Operating Efficiency",
         "description": "Gross margin expanded year-over-year, signaling pricing power or improved cost control.",
-        "formula": "(Revenue − COGS) ÷ Revenue",
-        "pass_rule": "Gross margin(t) > prior year",
-        "metric_cols": ["gross_margin"],
-        "metric_labels": ["Gross Margin"],
-        "benchmark": None,
+        "formula": "(TTM Revenue − TTM COGS) ÷ TTM Revenue",
+        "pass_rule": "TTM gross margin > prior-year TTM gross margin",
     },
     "F9": {
         "label": "Improving Asset Turnover",
         "group": "Operating Efficiency",
         "description": "Asset turnover increased year-over-year — more revenue generated per dollar of assets deployed.",
-        "formula": "Revenue ÷ Total Assets",
-        "pass_rule": "Asset turnover(t) > prior year",
-        "metric_cols": ["asset_turnover"],
-        "metric_labels": ["Asset Turnover"],
-        "benchmark": None,
+        "formula": "TTM Revenue ÷ Total Assets",
+        "pass_rule": "TTM asset turnover > prior-year TTM asset turnover",
     },
 }
 
 GROUPS = ["Profitability", "Leverage / Liquidity", "Operating Efficiency"]
 
-QUANT_PATH = "data/quant_metrics.parquet"
-
 # ---------------------------------------------------------------------------
-# Data
-# ---------------------------------------------------------------------------
-
-@st.cache_data(show_spinner="Loading quant metrics…")
-def load_quant() -> pd.DataFrame:
-    return pd.read_parquet(QUANT_PATH, engine="fastparquet")
-
-
-def get_row(df: pd.DataFrame, ticker: str) -> pd.Series | None:
-    mask = df["tic"].str.upper() == ticker.upper()
-    return df[mask].iloc[0] if mask.any() else None
-
-
-# ---------------------------------------------------------------------------
-# Ticker resolution — URL param takes priority, then session state
+# Ticker resolution
 # ---------------------------------------------------------------------------
 
 params = st.query_params
@@ -148,11 +114,16 @@ if not ticker:
     st.stop()
 
 quant_df = load_quant()
-row = get_row(quant_df, ticker)
+row = get_ticker_row(quant_df, ticker)
 
 if row is None:
     st.error(f"Ticker **{ticker}** not found in the quant metrics dataset.")
     st.stop()
+
+with st.spinner("Loading financial history…"):
+    hist = load_ticker_history(ticker, n_quarters=16)
+
+curr_ann, prev_ann = get_fscore_yoy_pair(hist) if hist is not None else (None, None)
 
 # ---------------------------------------------------------------------------
 # Header
@@ -164,12 +135,17 @@ fscore_pct = row.get("fscore_pct")
 fyearq = row.get("fyearq")
 
 st.title(f"Piotroski F-Score — {company} ({ticker})")
-if fyearq:
-    st.caption(f"Fiscal year: **{int(fyearq)}** · Data source: Compustat via WRDS (pre-computed)")
+
+if curr_ann is not None:
+    most_recent = f"Q{int(curr_ann['fqtr'])} {int(curr_ann['fyearq'])}"
+    st.caption(
+        f"Most recent data: **{most_recent}** · "
+        f"F-Score signals computed at fiscal year-end · "
+        f"Charts show TTM metrics through most recent available quarter"
+    )
 
 st.markdown("---")
 
-# Summary bar
 s1, s2, s3, s4 = st.columns(4)
 with s1:
     st.metric("F-Score", f"{int(fscore)} / 9" if pd.notna(fscore) else "N/A",
@@ -179,17 +155,12 @@ with s2:
               help="Rank vs. all tickers in the Compustat universe.")
 with s3:
     passed_count = sum(1 for fk in FSCORE_META if row.get(fk) == 1)
-    failed_count = sum(1 for fk in FSCORE_META if row.get(fk) == 0)
     st.metric("Components Passed", f"{passed_count} / 9")
 with s4:
     sector = row.get("sector", "N/A")
     st.metric("Sector", sector if pd.notna(sector) else "N/A")
 
 st.markdown("---")
-
-# ---------------------------------------------------------------------------
-# Score gauge — horizontal bar
-# ---------------------------------------------------------------------------
 
 if pd.notna(fscore):
     score = int(fscore)
@@ -204,11 +175,6 @@ if pd.notna(fscore):
 # Component detail — grouped
 # ---------------------------------------------------------------------------
 
-all_ratio_cols = ["roa", "cfo_assets", "leverage", "current_ratio",
-                  "gross_margin", "asset_turnover"]
-all_ratio_labels = ["ROA", "CFO / Assets", "LT Debt / Assets",
-                    "Current Ratio", "Gross Margin", "Asset Turnover"]
-
 for group in GROUPS:
     group_components = {fk: m for fk, m in FSCORE_META.items() if m["group"] == group}
     st.subheader(group)
@@ -217,70 +183,78 @@ for group in GROUPS:
         passed = row.get(fk)
         icon = "✅" if passed == 1 else "❌" if passed == 0 else "—"
         verdict = "PASS" if passed == 1 else "FAIL" if passed == 0 else "N/A"
+        cfg = FSCORE_HIST_CFG[fk]
+
+        col_names: list[str] = cfg["cols"] if "cols" in cfg else [cfg["col"]]
+        col_labels: list[str] = cfg["labels"] if "labels" in cfg else [cfg["label"]]
 
         with st.expander(f"{icon} **{fk}** — {meta['label']}  ·  {verdict}", expanded=True):
-            left, right = st.columns([3, 2])
+            left, right = st.columns([2, 3])
 
             with left:
-                st.markdown(f"**Description:** {meta['description']}")
-                st.markdown(f"**Formula:** `{meta['formula']}`")
-                st.markdown(f"**Pass condition:** {meta['pass_rule']}")
+                st.markdown(f"**{meta['description']}**")
+                st.code(meta["formula"], language=None)
+                st.caption(f"Pass condition: {meta['pass_rule']}")
 
-                if meta["metric_cols"]:
-                    st.markdown("**Current-period values:**")
-                    mcols = st.columns(len(meta["metric_cols"]))
-                    for i, (col_name, label) in enumerate(
-                        zip(meta["metric_cols"], meta["metric_labels"])
-                    ):
-                        val = row.get(col_name)
-                        with mcols[i]:
-                            if pd.notna(val):
-                                st.metric(label, f"{val:.4f}")
-                            else:
-                                st.metric(label, "N/A")
+                st.markdown("**TTM — Year-over-Year**")
+                if curr_ann is not None:
+                    curr_lbl = f"Q{int(curr_ann['fqtr'])} {int(curr_ann['fyearq'])}"
+                    prev_lbl = f"Q{int(prev_ann['fqtr'])} {int(prev_ann['fyearq'])}" if prev_ann is not None else "Prior Year"
+                    yoy_cols = st.columns(2)
+                    for cn, cl in zip(col_names, col_labels):
+                        cv = curr_ann.get(cn)
+                        cv = float(cv) if cv is not None and pd.notna(cv) else None
+                        pv = prev_ann.get(cn) if prev_ann is not None else None
+                        pv = float(pv) if pv is not None and pd.notna(pv) else None
+                        delta_str = fmt_fscore_delta(cn, cv - pv) if cv is not None and pv is not None else None
+                        with yoy_cols[0]:
+                            st.metric(
+                                f"{cl} ({curr_lbl})",
+                                fmt_fscore_val(cn, cv) if cv is not None else "N/A",
+                                delta=delta_str,
+                            )
+                        with yoy_cols[1]:
+                            st.metric(
+                                f"{cl} ({prev_lbl})",
+                                fmt_fscore_val(cn, pv) if pv is not None else "N/A",
+                            )
+                else:
+                    st.caption("Historical data not available.")
 
             with right:
-                if meta["metric_cols"]:
-                    chart_vals: dict[str, float] = {}
-                    benchmark = meta.get("benchmark")
-
-                    for col_name, label in zip(meta["metric_cols"], meta["metric_labels"]):
-                        val = row.get(col_name)
-                        if pd.notna(val):
-                            chart_vals[label] = float(val)
-
-                    if chart_vals:
-                        if benchmark is not None:
-                            chart_vals["Benchmark"] = benchmark
-
-                        chart_df = pd.DataFrame(
-                            {"Metric": list(chart_vals.keys()),
-                             "Value": list(chart_vals.values())}
-                        )
-                        st.bar_chart(chart_df.set_index("Metric"), height=220)
+                chart_df = build_fscore_chart(fk, hist)
+                n_periods = len(hist) if hist is not None else 0
+                st.markdown(f"**{col_labels[0]} — Quarterly ({n_periods} periods, TTM)**")
+                if chart_df is not None and not chart_df.empty:
+                    st.line_chart(chart_df, height=240)
+                else:
+                    st.info("Insufficient history for chart.")
 
     st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# All ratios summary table
+# Summary ratios table — TTM where applicable
 # ---------------------------------------------------------------------------
 
-st.subheader("All Underlying Ratios — Summary Table")
+st.subheader("Underlying Ratios — Most Recent TTM")
 
-ratio_rows = []
-for col, label in zip(all_ratio_cols, all_ratio_labels):
-    val = row.get(col)
-    ratio_rows.append({"Metric": label, "Column": col,
-                        "Value": f"{val:.4f}" if pd.notna(val) else "N/A"})
-
-ratio_df = pd.DataFrame(ratio_rows)
-st.dataframe(ratio_df, use_container_width=True, hide_index=True)
+if curr_ann is not None:
+    curr_lbl = f"Q{int(curr_ann['fqtr'])} {int(curr_ann['fyearq'])} (TTM)"
+    ratio_rows = [
+        {"Metric": "ROA",               "Column": "roa_ttm",            "Value": fmt_fscore_val("roa_ttm",            curr_ann.get("roa_ttm"))            if pd.notna(curr_ann.get("roa_ttm"))            else "N/A"},
+        {"Metric": "CFO / Assets",      "Column": "cfo_assets_ttm",     "Value": fmt_fscore_val("cfo_assets_ttm",     curr_ann.get("cfo_assets_ttm"))     if pd.notna(curr_ann.get("cfo_assets_ttm"))     else "N/A"},
+        {"Metric": "LT Debt / Assets",  "Column": "leverage_q",         "Value": fmt_fscore_val("leverage_q",         curr_ann.get("leverage_q"))         if pd.notna(curr_ann.get("leverage_q"))         else "N/A"},
+        {"Metric": "Current Ratio",     "Column": "current_ratio_q",    "Value": fmt_fscore_val("current_ratio_q",    curr_ann.get("current_ratio_q"))    if pd.notna(curr_ann.get("current_ratio_q"))    else "N/A"},
+        {"Metric": "Gross Margin",      "Column": "gross_margin_ttm",   "Value": fmt_fscore_val("gross_margin_ttm",   curr_ann.get("gross_margin_ttm"))   if pd.notna(curr_ann.get("gross_margin_ttm"))   else "N/A"},
+        {"Metric": "Asset Turnover",    "Column": "asset_turnover_ttm", "Value": fmt_fscore_val("asset_turnover_ttm", curr_ann.get("asset_turnover_ttm")) if pd.notna(curr_ann.get("asset_turnover_ttm")) else "N/A"},
+        {"Metric": "Shares Out. (M)",   "Column": "shares_m",           "Value": fmt_fscore_val("shares_m",           curr_ann.get("shares_m"))           if pd.notna(curr_ann.get("shares_m"))           else "N/A"},
+    ]
+    st.caption(f"As of {curr_lbl}. Balance sheet items are point-in-time; flow metrics are trailing twelve months.")
+    st.dataframe(pd.DataFrame(ratio_rows).drop(columns="Column"), use_container_width=True, hide_index=True)
+else:
+    st.info("Historical data not available for ratio table.")
 
 st.markdown("---")
-
-# ---------------------------------------------------------------------------
-# Navigation
-# ---------------------------------------------------------------------------
 
 if st.button("← Back to Dashboard"):
     st.switch_page("app.py")

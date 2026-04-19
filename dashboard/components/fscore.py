@@ -8,6 +8,15 @@ Public API:
 import pandas as pd
 import streamlit as st
 
+from dashboard.data_loader import (
+    FSCORE_HIST_CFG,
+    build_fscore_chart,
+    fmt_fscore_delta,
+    fmt_fscore_val,
+    get_fscore_yoy_pair,
+    load_ticker_history,
+)
+
 # ---------------------------------------------------------------------------
 # Component metadata
 # ---------------------------------------------------------------------------
@@ -17,46 +26,36 @@ FSCORE_META: dict[str, dict] = {
         "label": "Positive ROA",
         "group": "Profitability",
         "description": "Return on Assets > 0. Confirms the firm generates positive accounting profits on its asset base.",
-        "formula": "Net Income ÷ Total Assets",
+        "formula": "TTM Net Income ÷ Total Assets",
         "pass_rule": "ROA > 0",
-        "metric_cols": ["roa"],
-        "metric_labels": ["ROA"],
     },
     "F2": {
         "label": "Positive Cash Flow from Operations",
         "group": "Profitability",
         "description": "Operating cash flow is positive — the firm generates real cash earnings, not just accounting income.",
-        "formula": "CFO ÷ Total Assets (pass if > 0)",
+        "formula": "TTM CFO ÷ Total Assets",
         "pass_rule": "CFO / Assets > 0",
-        "metric_cols": ["cfo_assets"],
-        "metric_labels": ["CFO / Assets"],
     },
     "F3": {
         "label": "Increasing ROA",
         "group": "Profitability",
         "description": "ROA improved year-over-year. Indicates the firm's operational profitability is on an upward trend.",
-        "formula": "ROA(t) > ROA(t−1)",
-        "pass_rule": "Current ROA > prior-year ROA",
-        "metric_cols": ["roa"],
-        "metric_labels": ["ROA (current period)"],
+        "formula": "ROA(TTM, now) > ROA(TTM, 1yr ago)",
+        "pass_rule": "Current TTM ROA > prior-year TTM ROA",
     },
     "F4": {
         "label": "Accruals: Cash Earnings > Accounting Earnings",
         "group": "Profitability",
         "description": "Cash-based earnings exceed accrual-based earnings. Low accruals signal higher earnings quality and lower manipulation risk.",
-        "formula": "CFO / Assets > Net Income / Assets",
-        "pass_rule": "CFO/Assets > ROA",
-        "metric_cols": ["cfo_assets", "roa"],
-        "metric_labels": ["CFO / Assets", "ROA (NI / Assets)"],
+        "formula": "TTM CFO / Assets > TTM NI / Assets",
+        "pass_rule": "CFO/Assets (TTM) > ROA (TTM)",
     },
     "F5": {
         "label": "Decreasing Leverage",
         "group": "Leverage / Liquidity",
         "description": "Long-term debt ratio fell year-over-year, reducing financial risk and improving solvency margin.",
-        "formula": "LT Debt / Assets(t) < LT Debt / Assets(t−1)",
+        "formula": "LT Debt / Assets (current) < LT Debt / Assets (prior year)",
         "pass_rule": "Leverage fell vs. prior year",
-        "metric_cols": ["leverage"],
-        "metric_labels": ["LT Debt / Assets"],
     },
     "F6": {
         "label": "Increasing Current Ratio",
@@ -64,39 +63,64 @@ FSCORE_META: dict[str, dict] = {
         "description": "Short-term liquidity improved year-over-year. The firm has a stronger ability to cover near-term obligations.",
         "formula": "Current Assets / Current Liabilities",
         "pass_rule": "Current ratio rose vs. prior year",
-        "metric_cols": ["current_ratio"],
-        "metric_labels": ["Current Ratio"],
     },
     "F7": {
         "label": "No New Equity Issued",
         "group": "Leverage / Liquidity",
         "description": "Shares outstanding did not increase. Avoids EPS dilution that would harm existing shareholders.",
-        "formula": "Shares(t) ≤ Shares(t−1)",
+        "formula": "Shares Outstanding (current) ≤ Shares Outstanding (prior year)",
         "pass_rule": "Share count did not rise",
-        "metric_cols": [],
-        "metric_labels": [],
     },
     "F8": {
         "label": "Improving Gross Margin",
         "group": "Operating Efficiency",
         "description": "Gross margin expanded year-over-year, signaling pricing power or improved cost control.",
-        "formula": "(Revenue − COGS) ÷ Revenue",
-        "pass_rule": "Gross margin(t) > prior year",
-        "metric_cols": ["gross_margin"],
-        "metric_labels": ["Gross Margin"],
+        "formula": "(TTM Revenue − TTM COGS) ÷ TTM Revenue",
+        "pass_rule": "TTM gross margin > prior-year TTM gross margin",
     },
     "F9": {
         "label": "Improving Asset Turnover",
         "group": "Operating Efficiency",
         "description": "Asset turnover increased year-over-year — more revenue generated per dollar of assets deployed.",
-        "formula": "Revenue ÷ Total Assets",
-        "pass_rule": "Asset turnover(t) > prior year",
-        "metric_cols": ["asset_turnover"],
-        "metric_labels": ["Asset Turnover"],
+        "formula": "TTM Revenue ÷ Total Assets",
+        "pass_rule": "TTM asset turnover > prior-year TTM asset turnover",
     },
 }
 
-_DELTA_SIGNALS = {"F3", "F5", "F6", "F7", "F8", "F9"}
+# ---------------------------------------------------------------------------
+# YoY comparison helper
+# ---------------------------------------------------------------------------
+
+def _render_yoy(component: str, curr: pd.Series, prev: pd.Series | None) -> None:
+    """Show current TTM vs. same quarter one year ago using st.metric with delta."""
+    cfg = FSCORE_HIST_CFG[component]
+    col_names: list[str] = cfg["cols"] if "cols" in cfg else [cfg["col"]]
+    col_labels: list[str] = cfg["labels"] if "labels" in cfg else [cfg["label"]]
+
+    curr_lbl = f"Q{int(curr['fqtr'])} {int(curr['fyearq'])}"
+    prev_lbl = f"Q{int(prev['fqtr'])} {int(prev['fyearq'])}" if prev is not None else "Prior Year"
+
+    metric_cols = st.columns(len(col_names) * 2)
+
+    for i, (cn, cl) in enumerate(zip(col_names, col_labels)):
+        cv = curr.get(cn)
+        cv = float(cv) if cv is not None and pd.notna(cv) else None
+        pv = prev.get(cn) if prev is not None else None
+        pv = float(pv) if pv is not None and pd.notna(pv) else None
+
+        delta_str = fmt_fscore_delta(cn, cv - pv) if cv is not None and pv is not None else None
+
+        with metric_cols[i * 2]:
+            st.metric(
+                f"{cl} ({curr_lbl})",
+                fmt_fscore_val(cn, cv) if cv is not None else "N/A",
+                delta=delta_str,
+            )
+        with metric_cols[i * 2 + 1]:
+            st.metric(
+                f"{cl} ({prev_lbl})",
+                fmt_fscore_val(cn, pv) if pv is not None else "N/A",
+            )
 
 # ---------------------------------------------------------------------------
 # Component detail dialog
@@ -105,60 +129,46 @@ _DELTA_SIGNALS = {"F3", "F5", "F6", "F7", "F8", "F9"}
 @st.dialog("F-Score Component Detail", width="large")
 def _component_dialog(component: str, ticker_row: pd.Series, ticker: str) -> None:
     meta = FSCORE_META[component]
+    cfg = FSCORE_HIST_CFG[component]
     passed = ticker_row.get(component)
-    icon = "✅" if passed == 1 else "❌" if passed == 0 else "—"
-
-    st.subheader(f"{icon} {component}: {meta['label']}")
-    st.caption(f"Group: **{meta['group']}**")
-    st.divider()
-
-    desc_col, rule_col = st.columns(2)
-    with desc_col:
-        st.markdown("**What it measures**")
-        st.write(meta["description"])
-    with rule_col:
-        st.markdown("**Formula**")
-        st.code(meta["formula"], language=None)
-        st.markdown(f"**Pass condition:** {meta['pass_rule']}")
-
-    st.divider()
-
-    if meta["metric_cols"]:
-        st.markdown("**Current-period metric(s)**")
-        mcols = st.columns(len(meta["metric_cols"]))
-        chart_vals: dict[str, float] = {}
-        for i, (col_name, label) in enumerate(zip(meta["metric_cols"], meta["metric_labels"])):
-            val = ticker_row.get(col_name)
-            with mcols[i]:
-                st.metric(label, f"{val:.4f}" if pd.notna(val) else "N/A")
-            if pd.notna(val):
-                chart_vals[label] = float(val)
-
-        if chart_vals:
-            chart_df = pd.DataFrame(
-                {"Metric": list(chart_vals.keys()), "Value": list(chart_vals.values())}
-            )
-            st.bar_chart(chart_df.set_index("Metric"), height=220)
-
-        if component in _DELTA_SIGNALS:
-            st.caption(
-                "Pass/fail is based on year-over-year change. "
-                "Only the current-period value is stored in the pre-computed dataset."
-            )
-    else:
-        st.info(
-            "This signal (share issuance) is a binary year-over-year "
-            "comparison of share counts — no scalar ratio is stored."
-        )
-
-    st.divider()
 
     if passed == 1:
-        st.success(f"**PASS** — {meta['label']}")
+        st.success(f"**PASS** — {component}: {meta['label']}")
     elif passed == 0:
-        st.error(f"**FAIL** — {meta['label']}")
+        st.error(f"**FAIL** — {component}: {meta['label']}")
     else:
-        st.warning("Result unavailable (insufficient historical data).")
+        st.warning(f"**N/A** — {component}: {meta['label']}")
+
+    desc_col, formula_col = st.columns([3, 2])
+    with desc_col:
+        st.caption(meta["description"])
+    with formula_col:
+        st.code(meta["formula"], language=None)
+        st.caption(f"Pass if: {meta['pass_rule']}")
+
+    st.divider()
+
+    with st.spinner("Loading history…"):
+        hist = load_ticker_history(ticker)
+
+    if hist is not None and not hist.empty:
+        curr, prev = get_fscore_yoy_pair(hist)
+
+        st.markdown("**TTM — Year-over-Year**")
+        _render_yoy(component, curr, prev)
+
+        st.divider()
+
+        chart_df = build_fscore_chart(component, hist)
+        main_label = cfg.get("labels", [cfg.get("label")])[0]
+        st.markdown(f"**{main_label} — Quarterly ({len(hist)} periods, TTM)**")
+
+        if chart_df is not None and not chart_df.empty:
+            st.line_chart(chart_df, height=260)
+        else:
+            st.info("Insufficient data for chart.")
+    else:
+        st.info("Historical data not available for this ticker.")
 
     st.divider()
 
