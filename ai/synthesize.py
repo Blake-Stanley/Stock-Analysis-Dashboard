@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import re
 
 import anthropic
@@ -33,10 +34,33 @@ _MODEL = "claude-sonnet-4-6"
 _client: anthropic.Anthropic | None = None
 
 
+def _get_api_key() -> str | None:
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if api_key:
+        return api_key
+
+    secrets_path = Path(__file__).resolve().parents[1] / ".streamlit" / "secrets.toml"
+    if not secrets_path.exists():
+        return None
+
+    try:
+        import tomllib
+
+        raw = secrets_path.read_bytes()
+        if raw.startswith(b"\xef\xbb\xbf"):
+            raw = raw[3:]
+        secrets = tomllib.loads(raw.decode("utf-8"))
+    except Exception:
+        return None
+
+    secret = secrets.get("ANTHROPIC_API_KEY")
+    return secret.strip() if isinstance(secret, str) and secret.strip() else None
+
+
 def _get_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        api_key = _get_api_key()
         _client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
     return _client
 
