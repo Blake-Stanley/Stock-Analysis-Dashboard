@@ -14,7 +14,8 @@ Public API
 
 Environment
 -----------
-    ANTHROPIC_API_KEY must be set.
+    ANTHROPIC_API_KEY must be set in the environment or in
+    .streamlit/secrets.toml.
 """
 
 from __future__ import annotations
@@ -30,14 +31,15 @@ import pandas as pd
 from ai.prompt_template import build_user_message, system_prompt
 
 _MODEL = "claude-sonnet-4-6"
+_API_TIMEOUT_SECONDS = 60.0
 
 _client: anthropic.Anthropic | None = None
 
 
 def _get_api_key() -> str | None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if api_key:
-        return api_key
+    if isinstance(api_key, str) and api_key.strip():
+        return api_key.strip()
 
     secrets_path = Path(__file__).resolve().parents[1] / ".streamlit" / "secrets.toml"
     if not secrets_path.exists():
@@ -61,7 +63,11 @@ def _get_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
         api_key = _get_api_key()
-        _client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+        if not api_key:
+            raise RuntimeError(
+                "ANTHROPIC_API_KEY is not set in the environment or .streamlit/secrets.toml"
+            )
+        _client = anthropic.Anthropic(api_key=api_key)
     return _client
 
 
@@ -124,9 +130,14 @@ def synthesize(
             messages=[
                 {"role": "user", "content": build_user_message(row, ticker, sent_df)},
             ],
+            timeout=_API_TIMEOUT_SECONDS,
         )
 
-        raw = response.content[0].text
+        raw = "".join(
+            block.text for block in response.content if getattr(block, "text", None)
+        )
+        if not raw.strip():
+            raise ValueError("Claude returned no text content.")
         result = _parse_json(raw)
 
         return {

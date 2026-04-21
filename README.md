@@ -101,10 +101,18 @@ pip install -r requirements.txt
 - `data/ff5_plus_mom.dta`
 - `data/quant_metrics.parquet` ← pre-built; no need to regenerate unless signals change
 
-**API key** — set your Anthropic key before running the dashboard:
+**API key** — set your Anthropic key before running the dashboard. The app
+checks the environment first, then falls back to `.streamlit/secrets.toml`.
+
+For local Streamlit secrets, create `.streamlit/secrets.toml`:
+```toml
+ANTHROPIC_API_KEY = "sk-..."
+```
+
+Or set it in your shell:
 ```bash
 export ANTHROPIC_API_KEY=sk-...   # macOS/Linux
-set ANTHROPIC_API_KEY=sk-...      # Windows
+$env:ANTHROPIC_API_KEY='sk-...'   # Windows PowerShell
 ```
 
 ---
@@ -133,16 +141,3 @@ python signals/composite.py
 
 - **Stale data by design.** Quant metrics are pre-computed from a static WRDS pull; the dashboard does not make live WRDS queries at runtime. This limitation is acknowledged in the writeup.
 - **Transcript source:** SEC EDGAR 8-K filings only. No fallback scraper — tickers without a clean EDGAR transcript show "not available" in the dashboard.
-
----
-
-## Current Status (April 15, 2026)
-
-| Phase | Owner | Status |
-|-------|-------|--------|
-| Phase 1 — Data & quant signals | Blake | Complete |
-| Phase 2 — Earnings call sentiment | Will | Not started |
-| Phase 3 — Claude AI synthesis | Will | Not started |
-| Phase 4 — Streamlit dashboard | Both | In progress (Modules 1–4 built) |
-| Phase 5 — Validation & polish | Both | Not started |
-| Phase 6 — Final writeup | Both | Not started |

@@ -7,8 +7,18 @@ Public API:
 
 from __future__ import annotations
 
+import hashlib
+
 import pandas as pd
 import streamlit as st
+
+
+def _cache_key(row: pd.Series, ticker: str, sent_df: pd.DataFrame | None) -> str:
+    from ai.prompt_template import build_user_message, system_prompt
+
+    prompt = system_prompt() + "\n\n---USER---\n\n" + build_user_message(row, ticker, sent_df)
+    digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    return f"_ai_synthesis_{ticker.upper()}_{digest}"
 
 
 def render(row: pd.Series, ticker: str, sent_df: pd.DataFrame | None) -> None:
@@ -35,9 +45,15 @@ def render(row: pd.Series, ticker: str, sent_df: pd.DataFrame | None) -> None:
             )
             return
 
+        cache_key = _cache_key(row, ticker, ticker_sent)
+        if st.button("Regenerate", key=f"_ai_regenerate_{ticker.upper()}"):
+            st.session_state.pop(cache_key, None)
+
         with st.spinner("Generating AI synthesis…"):
             try:
-                result = synthesize(row, ticker, ticker_sent)
+                if cache_key not in st.session_state:
+                    st.session_state[cache_key] = synthesize(row, ticker, ticker_sent)
+                result = st.session_state[cache_key]
             except Exception as exc:
                 st.error(f"AI synthesis failed: {exc}")
                 return

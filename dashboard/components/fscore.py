@@ -40,6 +40,7 @@ FSCORE_META: dict[str, dict] = {
         "label": "Increasing ROA",
         "group": "Profitability",
         "description": "ROA improved year-over-year. Indicates the firm's operational profitability is on an upward trend.",
+        "fail_description": "ROA declined or did not improve year-over-year, so the firm does not receive credit for improving profitability.",
         "formula": "ROA(TTM, now) > ROA(TTM, 1yr ago)",
         "pass_rule": "Current TTM ROA > prior-year TTM ROA",
     },
@@ -54,6 +55,7 @@ FSCORE_META: dict[str, dict] = {
         "label": "Decreasing Leverage",
         "group": "Leverage / Liquidity",
         "description": "Long-term debt ratio fell year-over-year, reducing financial risk and improving solvency margin.",
+        "fail_description": "Long-term debt ratio rose or did not decline year-over-year, so leverage did not improve under the F-Score rule.",
         "formula": "LT Debt / Assets (current) < LT Debt / Assets (prior year)",
         "pass_rule": "Leverage fell vs. prior year",
     },
@@ -61,6 +63,7 @@ FSCORE_META: dict[str, dict] = {
         "label": "Increasing Current Ratio",
         "group": "Leverage / Liquidity",
         "description": "Short-term liquidity improved year-over-year. The firm has a stronger ability to cover near-term obligations.",
+        "fail_description": "Short-term liquidity weakened or did not improve year-over-year. The firm does not receive credit for a stronger ability to cover near-term obligations.",
         "formula": "Current Assets / Current Liabilities",
         "pass_rule": "Current ratio rose vs. prior year",
     },
@@ -68,6 +71,7 @@ FSCORE_META: dict[str, dict] = {
         "label": "No New Equity Issued",
         "group": "Leverage / Liquidity",
         "description": "Shares outstanding did not increase. Avoids EPS dilution that would harm existing shareholders.",
+        "fail_description": "Shares outstanding increased year-over-year, indicating new equity issuance or dilution under the F-Score rule.",
         "formula": "Shares Outstanding (current) ≤ Shares Outstanding (prior year)",
         "pass_rule": "Share count did not rise",
     },
@@ -75,6 +79,7 @@ FSCORE_META: dict[str, dict] = {
         "label": "Improving Gross Margin",
         "group": "Operating Efficiency",
         "description": "Gross margin expanded year-over-year, signaling pricing power or improved cost control.",
+        "fail_description": "Gross margin contracted or did not expand year-over-year, so operating efficiency did not improve under this rule.",
         "formula": "(TTM Revenue − TTM COGS) ÷ TTM Revenue",
         "pass_rule": "TTM gross margin > prior-year TTM gross margin",
     },
@@ -82,10 +87,17 @@ FSCORE_META: dict[str, dict] = {
         "label": "Improving Asset Turnover",
         "group": "Operating Efficiency",
         "description": "Asset turnover increased year-over-year — more revenue generated per dollar of assets deployed.",
+        "fail_description": "Asset turnover declined or did not increase year-over-year, so the firm generated no improvement in revenue per dollar of assets.",
         "formula": "TTM Revenue ÷ Total Assets",
         "pass_rule": "TTM asset turnover > prior-year TTM asset turnover",
     },
 }
+
+
+def _component_description(meta: dict, passed) -> str:
+    if passed == 0 and "fail_description" in meta:
+        return meta["fail_description"]
+    return meta["description"]
 
 # ---------------------------------------------------------------------------
 # YoY comparison helper
@@ -141,7 +153,7 @@ def _component_dialog(component: str, ticker_row: pd.Series, ticker: str) -> Non
 
     desc_col, formula_col = st.columns([3, 2])
     with desc_col:
-        st.caption(meta["description"])
+        st.caption(_component_description(meta, passed))
     with formula_col:
         st.code(meta["formula"], language=None)
         st.caption(f"Pass if: {meta['pass_rule']}")

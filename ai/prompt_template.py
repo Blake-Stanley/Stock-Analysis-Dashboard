@@ -26,9 +26,22 @@ bull/bear synthesis for an academic research dashboard.
 ## Signal definitions
 
 **Piotroski F-Score (0–9)**
-Nine binary tests across three pillars: profitability (F1–F3), leverage/liquidity (F4–F6), \
-and operating efficiency (F7–F9). Score ≥7 = strong, ≤3 = weak. Percentile rank is vs. \
+Nine binary tests across three pillars: profitability (F1–F4), leverage/liquidity (F5–F7), \
+and operating efficiency (F8–F9). Score ≥7 = strong, ≤3 = weak. Percentile rank is vs. \
 the full universe in the pre-computed dataset.
+
+Individual F-Score components:
+- F1 Positive ROA: net income / total assets is greater than zero.
+- F2 Positive operating cash flow: cash flow from operations is greater than zero.
+- F3 Improving ROA: current ROA is greater than prior-year ROA.
+- F4 Cash earnings quality: CFO / assets is greater than net income / assets, meaning \
+  cash earnings exceed accounting earnings.
+- F5 Decreasing leverage: long-term debt / assets is lower than the prior year.
+- F6 Increasing current ratio: current assets / current liabilities is higher than the prior year.
+- F7 No new equity issued: shares outstanding did not increase versus the prior year.
+- F8 Improving gross margin: (revenue - COGS) / revenue is higher than the prior year.
+- F9 Improving asset turnover: revenue / assets is higher than the prior year.
+Each component is binary. PASS means the favorable condition is met; FAIL means it is not.
 
 **Gross Profitability (Novy-Marx)**
 (Revenue − COGS) / Total Assets. Higher = more efficient economic moat. Both a \
@@ -135,23 +148,24 @@ def build_user_message(
 
     # F-Score components
     f_labels = {
-        "F1": "ROA positive",
-        "F2": "Operating CF positive",
-        "F3": "ROA improving",
-        "F4": "Leverage decreasing",
-        "F5": "Current ratio improving",
-        "F6": "No share dilution",
-        "F7": "Gross margin improving",
-        "F8": "Asset turnover improving",
-        "F9": "Accruals (CF > NI)",
+        "F1": "Positive ROA; net income / assets > 0",
+        "F2": "Positive operating cash flow; CFO > 0",
+        "F3": "Improving ROA; current ROA > prior-year ROA",
+        "F4": "Cash earnings quality; CFO / assets > net income / assets",
+        "F5": "Decreasing leverage; long-term debt / assets fell year-over-year",
+        "F6": "Increasing current ratio; current assets / current liabilities improved",
+        "F7": "No new equity issued; shares outstanding did not increase",
+        "F8": "Improving gross margin; gross margin expanded year-over-year",
+        "F9": "Improving asset turnover; revenue / assets improved year-over-year",
     }
-    component_parts = []
+    component_lines = []
     for f, label in f_labels.items():
         v = row.get(f)
         if pd.notna(v):
-            component_parts.append(f"{f}({label})={'PASS' if int(v) else 'FAIL'}")
-    if component_parts:
-        lines.append("  Components: " + ", ".join(component_parts))
+            component_lines.append(f"  - {f}: {label} => {'PASS' if int(v) else 'FAIL'}")
+    if component_lines:
+        lines.append("  Component results:")
+        lines.extend(component_lines)
 
     lines += [
         "",

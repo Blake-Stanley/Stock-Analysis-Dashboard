@@ -43,7 +43,25 @@ st.set_page_config(
 
 # Hide Streamlit's automatic multipage sidebar nav
 st.markdown(
-    '<style>[data-testid="stSidebarNav"]{display:none}</style>',
+    """
+    <style>
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
+
+    [data-testid="stSidebar"] [data-testid="InputInstructions"] {
+        display: none;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stTextInput"] {
+        margin-bottom: 0.65rem;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button {
+        margin-top: 0.15rem;
+    }
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
