@@ -37,6 +37,12 @@ def _get_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            try:
+                import streamlit as st
+                api_key = st.secrets.get("ANTHROPIC_API_KEY")
+            except Exception:
+                pass
         _client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
     return _client
 

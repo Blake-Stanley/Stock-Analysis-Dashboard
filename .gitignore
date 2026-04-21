@@ -1,6 +1,9 @@
 # some claude settings for local computer
 .claude/settings.local.json
 
+# Streamlit secrets — contains API keys, never commit
+.streamlit/secrets.toml
+
 # these data files are too big
 data/compustat_with_permno.parquet
 data/crsp_m.dta
