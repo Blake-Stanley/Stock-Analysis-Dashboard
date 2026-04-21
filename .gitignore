@@ -216,5 +216,5 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-# PowerPoint files (may contain embedded video > GitHub 100MB limit)
-*.pptx
+# PowerPoint file contains embedded video > GitHub 100MB limit
+presentation.pptx
