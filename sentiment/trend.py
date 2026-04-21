@@ -146,7 +146,7 @@ def build_ticker_sentiment(
 
     if not transcripts:
         if verbose:
-            print(f"[{ticker}] No transcripts found on EDGAR.")
+            print(f"[{ticker}] No transcripts found on Motley Fool.")
         return pd.DataFrame()
 
     if verbose:
@@ -250,19 +250,43 @@ def load_ticker_sentiment(
 
     Returns empty DataFrame if the file doesn't exist or the ticker is absent.
     Falls back to live fetch if cache is missing (so dashboard never crashes).
+
+    Any cached rows where all three scores are 0.0 are treated as previously
+    paywalled quarters and are retried via a fresh live fetch.  If the
+    transcript is now accessible the row is replaced; if still paywalled the
+    new fetch returns nothing for that quarter and the zero row is dropped.
     """
     ticker = ticker.upper()
 
+    cached: pd.DataFrame = pd.DataFrame()
     if Path(parquet_path).exists():
         try:
             df = pd.read_parquet(parquet_path, engine="pyarrow")
-            result = df[df["ticker"] == ticker].copy()
-            if not result.empty:
-                return result.sort_values("date").reset_index(drop=True)
+            cached = df[df["ticker"] == ticker].copy()
         except Exception:
             pass
 
-    # Cache miss — fetch live (slower but dashboard stays functional)
+    if not cached.empty:
+        # Identify rows that were paywalled (all three scores exactly 0)
+        paywalled_mask = (
+            (cached["tone_score"] == 0.0) &
+            (cached["hedging_score"] == 0.0) &
+            (cached["confidence_score"] == 0.0)
+        )
+        if paywalled_mask.any():
+            # Drop the bad rows and retry a live fetch for this ticker
+            cached = cached[~paywalled_mask].copy()
+            fresh = build_ticker_sentiment(ticker, n_quarters=6)
+            if not fresh.empty:
+                # Keep only quarters not already in the cleaned cache
+                existing_labels = set(cached["quarter_label"]) if not cached.empty else set()
+                new_rows = fresh[~fresh["quarter_label"].isin(existing_labels)]
+                cached = pd.concat([cached, new_rows], ignore_index=True)
+
+        if not cached.empty:
+            return cached.sort_values("date").reset_index(drop=True)
+
+    # Full cache miss — fetch live
     return build_ticker_sentiment(ticker, n_quarters=6)
 
 

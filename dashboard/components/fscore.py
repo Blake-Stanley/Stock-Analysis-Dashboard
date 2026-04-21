@@ -223,5 +223,9 @@ def render(row: pd.Series, ticker: str) -> None:
                         st.session_state["_fscore_open"] = fk
                         st.rerun()
 
+        fyearq = row.get("fyearq")
+        vintage = f"FY {int(fyearq)} Q4" if pd.notna(fyearq) else "Dec 2024"
+        st.caption(f"Compustat fundamentals · {vintage}")
+
         if st.session_state.get("_fscore_open"):
             _component_dialog(st.session_state["_fscore_open"], row, ticker)

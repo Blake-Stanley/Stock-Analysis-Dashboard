@@ -31,3 +31,7 @@ def render(row: pd.Series, ticker: str) -> None:
             st.metric("Sector Percentile",
                       f"{gp_sect:.1f}th" if pd.notna(gp_sect) else "N/A",
                       help="Rank vs. tickers in same sector.")
+
+        fyearq = row.get("fyearq")
+        vintage = f"FY {int(fyearq)} Q4" if pd.notna(fyearq) else "Dec 2024"
+        st.caption(f"Compustat fundamentals · {vintage}")
