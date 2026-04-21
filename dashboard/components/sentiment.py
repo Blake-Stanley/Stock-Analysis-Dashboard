@@ -94,8 +94,8 @@ def render(ticker: str, sent_df: pd.DataFrame | None) -> None:
 
         if ticker_sent.empty:
             st.warning(
-                f"No earnings call transcript found for **{ticker}** on SEC EDGAR. "
-                "This ticker may not file earnings transcripts as 8-K exhibits."
+                f"No earnings call transcript found for **{ticker}** on Motley Fool. "
+                "This ticker may not have recent transcripts available."
             )
             return
 
@@ -104,13 +104,24 @@ def render(ticker: str, sent_df: pd.DataFrame | None) -> None:
         latest = ticker_sent.iloc[-1]
 
         # --- Latest quarter metric cards ---
-        st.caption(f"Latest quarter: **{latest['quarter_label']}**")
+        latest_date = latest.get("date")
+        date_str = pd.to_datetime(latest_date).strftime("%b %Y") if pd.notna(latest_date) else "unknown date"
+        n_quarters = len(ticker_sent)
+        st.caption(
+            f"Latest transcript: **{latest['quarter_label']}** ({date_str}) · "
+            f"{n_quarters} quarter{'s' if n_quarters != 1 else ''} available · Motley Fool"
+        )
 
         c1, c2, c3 = st.columns(3)
 
         tone = latest["tone_score"]
         hedging = latest["hedging_score"]
         confidence = latest["confidence_score"]
+
+        # Zero on all three almost always means a paywalled page was silently
+        # ingested — treat it as missing rather than a genuine score of zero.
+        if tone == 0.0 and hedging == 0.0 and confidence == 0.0:
+            tone = hedging = confidence = float("nan")
         tone_trend = latest.get("tone_trend", "n/a")
         hedging_trend = latest.get("hedging_trend", "n/a")
         conf_trend = latest.get("confidence_trend", "n/a")
@@ -118,8 +129,8 @@ def render(ticker: str, sent_df: pd.DataFrame | None) -> None:
         with c1:
             st.metric(
                 label=f"Tone  {_trend_arrow(tone_trend)}",
-                value=f"{tone:+.3f}",
-                delta=interpret_tone(tone),
+                value=f"{tone:+.3f}" if pd.notna(tone) else "N/A",
+                delta=interpret_tone(tone) if pd.notna(tone) else None,
                 delta_color=_trend_color(tone_trend, higher_is_better=True),
                 help="VADER compound sentiment on management text. "
                      "Range −1 (very negative) to +1 (very positive).",
@@ -128,8 +139,8 @@ def render(ticker: str, sent_df: pd.DataFrame | None) -> None:
         with c2:
             st.metric(
                 label=f"Hedging  {_trend_arrow(hedging_trend)}",
-                value=f"{hedging:.3f}",
-                delta=interpret_hedging(hedging),
+                value=f"{hedging:.3f}" if pd.notna(hedging) else "N/A",
+                delta=interpret_hedging(hedging) if pd.notna(hedging) else None,
                 delta_color=_trend_color(hedging_trend, higher_is_better=False),
                 help="Fraction of management words matching the Loughran-McDonald "
                      "uncertainty word list. Higher = more equivocal language.",
@@ -138,8 +149,8 @@ def render(ticker: str, sent_df: pd.DataFrame | None) -> None:
         with c3:
             st.metric(
                 label=f"Confidence  {_trend_arrow(conf_trend)}",
-                value=f"{confidence:.3f}",
-                delta=interpret_confidence(confidence),
+                value=f"{confidence:.3f}" if pd.notna(confidence) else "N/A",
+                delta=interpret_confidence(confidence) if pd.notna(confidence) else None,
                 delta_color=_trend_color(conf_trend, higher_is_better=True),
                 help="Forward-looking sentence ratio, penalised by hedging. "
                      "Higher = more concrete guidance with less qualification.",
@@ -156,6 +167,18 @@ def render(ticker: str, sent_df: pd.DataFrame | None) -> None:
 
         # --- QoQ delta table ---
         if len(ticker_sent) > 1:
+            # Mask all-zero rows (paywalled quarter) so they don't show 0 in table
+            all_zero = (
+                (ticker_sent["tone_score"] == 0.0) &
+                (ticker_sent["hedging_score"] == 0.0) &
+                (ticker_sent["confidence_score"] == 0.0)
+            )
+            ticker_sent.loc[all_zero, [
+                "tone_score", "hedging_score", "confidence_score",
+                "tone_qoq", "hedging_qoq", "confidence_qoq",
+                "tone_trend", "hedging_trend", "confidence_trend",
+            ]] = float("nan")
+
             qoq_cols = [
                 "quarter_label", "tone_score", "tone_qoq", "tone_trend",
                 "hedging_score", "hedging_qoq",

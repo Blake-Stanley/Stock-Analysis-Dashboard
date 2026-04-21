@@ -51,6 +51,20 @@ HEADERS = {
 }
 
 _MIN_TRANSCRIPT_LEN = 1_500   # chars — discard pages that are mostly boilerplate
+
+# Phrases that indicate a paywall / subscription gate — these pages have no transcript
+_PAYWALL_PHRASES = [
+    "unlock this article",
+    "subscribe to read",
+    "sign up to read",
+    "become a member to read",
+    "premium content",
+    "fool membership",
+    "join motley fool",
+    "start your free trial",
+    "to continue reading",
+    "members only",
+]
 _MAX_PAGES = 40               # fallback pagination limit
 
 # Module-level cache for EDGAR ticker → company name
@@ -239,7 +253,17 @@ def _fetch_transcript_text(url: str) -> Optional[str]:
     full_text = re.sub(r"[ \t]{2,}", " ", full_text)
     full_text = re.sub(r"\n{3,}", "\n\n", full_text)
 
-    return full_text.strip() if len(full_text) >= _MIN_TRANSCRIPT_LEN else None
+    text_out = full_text.strip()
+    if len(text_out) < _MIN_TRANSCRIPT_LEN:
+        return None
+
+    # Reject pages that are paywall / subscription gates — they pass the length
+    # check but contain no actual transcript text, which scores as all zeros.
+    text_lower = text_out.lower()
+    if any(phrase in text_lower for phrase in _PAYWALL_PHRASES):
+        return None
+
+    return text_out
 
 
 # ---------------------------------------------------------------------------

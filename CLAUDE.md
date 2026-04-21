@@ -36,6 +36,7 @@ Update this file at the end of every working session or whenever a meaningful mi
 - **Data vintage:** All data (Compustat + CRSP) runs through **December 31, 2024**. The dashboard presents signals as-of that date; no data exists beyond it. This is the single consistent cutoff across all signals — quant_metrics.parquet reflects this vintage. Dashboard should surface this date so viewers know the analysis is not real-time.
 - **Composite score:** Equal-weighted average of per-signal percentile ranks → one composite score (0–100). Dashboard also shows each individual factor's percentile rank so viewers can see the contribution breakdown. Weighting rationale documented in code docstring.
 - **Transcript source:** ~~SEC EDGAR 8-K~~ → **Motley Fool** (`sentiment/fetch_motley_fool.py`). Changed after EDGAR parsing proved unreliable. `sentiment/fetch_transcripts.py` (EDGAR fetcher) still exists but is no longer the primary path. `sentiment/trend.py:load_ticker_sentiment()` uses the Motley Fool fetcher internally.
+- **Paywall handling (Motley Fool):** Recent transcripts are sometimes paywalled. `fetch_motley_fool._fetch_transcript_text()` detects paywall pages via a phrase list and returns `None` (dropping the quarter). `load_ticker_sentiment()` additionally checks the parquet cache for any all-zero rows (tone=hedging=confidence=0.0) — the fingerprint of a paywalled fetch — drops them, and fires a fresh live fetch to pick up quarters that may have since become free. The dashboard also masks any surviving all-zero rows to NaN so they render as "N/A" rather than 0.
 - **Dashboard architecture:** Modular component files — `app.py` is a thin orchestrator; each panel lives in `dashboard/components/<module>.py` and exposes a single `render(row, ticker, ...)` function. New panels = new file, no touching `app.py` logic. Data loading lives in `dashboard/data_loader.py`. Full-screen detail pages live in `dashboard/pages/`.
 - **F-Score display metrics:** All flow-based ratios in the F-Score detail dialog and detail page use **TTM (trailing twelve months)** calculated from rolling 4-quarter sums of quarterly Compustat data (`ibq`, `saleq`, `cogsq`, incremental `oancfy`). Balance sheet items (`atq`, `dlttq`, `actq`, `lctq`, `cshoq`) remain point-in-time. The underlying F-Score pass/fail signals in `quant_metrics.parquet` are still computed annually (fiscal year-end) as Piotroski (2000) specifies.
 
@@ -129,7 +130,7 @@ def render(row: pd.Series, ticker: str) -> None:
 
 ---
 
-## Current State — April 19, 2026
+## Current State — April 20, 2026
 
 **Phases 1–2 complete. Phase 3 (AI synthesis) in progress. Demo April 21.**
 
@@ -145,7 +146,7 @@ def render(row: pd.Series, ticker: str) -> None:
 - `dashboard/components/gross_profitability.py` — Module 2
 - `dashboard/components/earnings_quality.py` — Module 3
 - `dashboard/components/valuation_momentum.py` — Module 4
-- `dashboard/components/sentiment.py` — Module 5: Motley Fool sentiment, QoQ trend line chart (tone/hedging/confidence), latest-quarter metric cards
+- `dashboard/components/sentiment.py` — Module 5: Motley Fool sentiment, QoQ trend line chart (tone/hedging/confidence), latest-quarter metric cards; paywalled quarters render as N/A and are auto-retried on next load
 - `dashboard/components/ai_synthesis.py` — Module 6: stub only
 - `dashboard/pages/fscore_detail.py` — full F-Score drill-down: all 9 components with TTM line charts + YoY deltas, summary ratio table
 - `sentiment/fetch_motley_fool.py` — primary transcript fetcher (Motley Fool)

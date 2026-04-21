@@ -154,6 +154,17 @@ def fmt_fscore_delta(col: str, delta: float) -> str:
 
 
 def get_ticker_row(df: pd.DataFrame, ticker: str) -> pd.Series | None:
-    """Return the single row for *ticker* (case-insensitive), or None."""
+    """Return the single row for *ticker* (case-insensitive), or None.
+
+    When duplicate rows exist (PERMNO collision across gvkeys), picks the row
+    with the largest total_assets — the real operating company, not a ghost.
+    """
     mask = df["tic"].str.upper() == ticker.upper()
-    return df[mask].iloc[0] if mask.any() else None
+    matches = df[mask]
+    if matches.empty:
+        return None
+    if len(matches) == 1:
+        return matches.iloc[0]
+    if "total_assets" in matches.columns:
+        return matches.loc[matches["total_assets"].idxmax()]
+    return matches.iloc[0]

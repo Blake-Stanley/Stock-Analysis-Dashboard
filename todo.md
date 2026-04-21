@@ -55,11 +55,11 @@
 - [x] **Module 2 — Gross Profitability panel.** Current value + percentile rank vs. sector (bar or gauge). ✅ April 15, 2026
 - [x] **Module 3 — Earnings Quality panel.** Accruals ratio + cash flow vs. net income comparison chart. ✅ April 15, 2026
 - [x] **Module 4 — Valuation & Momentum panel.** EV/EBITDA, P/E, 12-1M momentum, reversal flag. ✅ April 15, 2026
-- [ ] **Module 5 — Sentiment & Textual Analysis panel.** QoQ trend line chart (tone, hedging, confidence over last 4–6 quarters).
-- [ ] **Module 6 — AI Synthesis panel.** Display bull case, bear case, key risks, and divergence flag from Claude output. Show a spinner while the API call is in flight.
-- [ ] **Wire up all modules end-to-end.** Ticker input → load from parquet → compute/fetch → display all 6 panels.
-- [ ] **Handle missing data gracefully.** If transcript data or a signal is unavailable for a ticker, show a clear "not available" message rather than crashing.
-- [ ] **Display how stale each data is at each module** We want the user to know how stale each signal is as they can be a varying levels of staleness.
+- [x] **Module 5 — Sentiment & Textual Analysis panel.** QoQ trend line chart (tone, hedging, confidence over last 4–6 quarters). ✅ April 20, 2026
+- [x] **Module 6 — AI Synthesis panel.** Display bull case, bear case, key risks, and divergence flag from Claude output. Show a spinner while the API call is in flight. ✅ April 20, 2026
+- [x] **Wire up all modules end-to-end.** Ticker input → load from parquet → compute/fetch → display all 6 panels. ✅ April 20, 2026
+- [x] **Handle missing data gracefully.** If transcript data or a signal is unavailable for a ticker, show a clear "not available" message rather than crashing. ✅ April 20, 2026
+- [x] **Display how stale each data is at each module** We want the user to know how stale each signal is as they can be a varying levels of staleness. ✅ April 20, 2026
 
 ---
 

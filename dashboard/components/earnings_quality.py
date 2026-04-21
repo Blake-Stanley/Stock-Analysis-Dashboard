@@ -30,12 +30,24 @@ def render(row: pd.Series, ticker: str) -> None:
                       f"{aq_pct:.1f}th" if pd.notna(aq_pct) else "N/A",
                       help="Inverted accruals rank — higher = cleaner earnings.")
         with c3:
-            flag_label = "High (caution)" if high_acc == 1 else "Normal"
-            st.metric("Accruals Flag", flag_label)
+            if pd.isna(high_acc):
+                flag_label = "N/A"
+            elif high_acc == 1:
+                flag_label = "High (caution)"
+            else:
+                flag_label = "Normal"
+            st.metric("Accruals Flag", flag_label,
+                      help="Flagged 'High' if this ticker's accruals ratio is in the top quartile "
+                           "of the universe (~28k tickers). High accruals mean earnings are running "
+                           "ahead of cash flow — Sloan (1996) showed this predicts future underperformance.")
 
         if pd.notna(net_income) and pd.notna(cfo):
             cf_df = pd.DataFrame({
                 "Metric": ["Net Income", "Operating Cash Flow"],
-                "Value ($M)": [net_income / 1e6, cfo / 1e6],
+                "Value ($M)": [net_income, cfo],
             })
             st.bar_chart(cf_df.set_index("Metric"))
+
+        fyearq = row.get("fyearq")
+        vintage = f"FY {int(fyearq)} Q4" if pd.notna(fyearq) else "Dec 2024"
+        st.caption(f"Compustat fundamentals · {vintage}")
