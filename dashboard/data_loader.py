@@ -40,7 +40,7 @@ def load_quant() -> pd.DataFrame:
 @st.cache_data(show_spinner="Loading sentiment scores…")
 def load_sentiment() -> pd.DataFrame | None:
     try:
-        return pd.read_parquet(SENTIMENT_PATH, engine="fastparquet")
+        return pd.read_parquet(SENTIMENT_PATH, engine="pyarrow")
     except FileNotFoundError:
         return None
 

@@ -228,12 +228,11 @@ def export_sentiment_scores(
 
     combined = pd.concat(frames, ignore_index=True)
     combined = combined.sort_values(["ticker", "date"]).reset_index(drop=True)
-
     os.makedirs(Path(output_path).parent, exist_ok=True)
-    combined.to_parquet(output_path, engine="fastparquet", index=False)
+    combined.to_parquet(output_path, engine="pyarrow", index=False)
 
     if verbose:
-        print(f"\nWrote {len(combined)} rows → {output_path}")
+        print(f"\nWrote {len(combined)} rows -> {output_path}")
 
     return combined
 
@@ -256,7 +255,7 @@ def load_ticker_sentiment(
 
     if Path(parquet_path).exists():
         try:
-            df = pd.read_parquet(parquet_path, engine="fastparquet")
+            df = pd.read_parquet(parquet_path, engine="pyarrow")
             result = df[df["ticker"] == ticker].copy()
             if not result.empty:
                 return result.sort_values("date").reset_index(drop=True)
